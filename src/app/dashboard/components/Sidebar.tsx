@@ -102,15 +102,14 @@ const Icons = {
             <line x1="10" y1="9" x2="8" y2="9" />
         </svg>
     ),
-    plan: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-            <line x1="1" y1="10" x2="23" y2="10" />
+    chevron: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
         </svg>
     ),
 }
 
-// Items completos para navegacion
+// Items de navegacion (sin Mi Plan—se movio al header de cuenta)
 const NAV_ITEMS = [
     { href: '/dashboard', label: 'Inicio', icon: Icons.home },
     { href: '/dashboard/pos', label: 'Punto de Venta', icon: Icons.pos, permission: 'order:create' as const },
@@ -121,7 +120,6 @@ const NAV_ITEMS = [
     { href: '/dashboard/inventory', label: 'Inventario', icon: Icons.inventory, permission: 'inventory:adjust' as const },
     { href: '/dashboard/settings/team', label: 'Equipo', icon: Icons.team, ownerOnly: true },
     { href: '/dashboard/audit', label: 'Auditoría', icon: Icons.audit, ownerOnly: true },
-    { href: '/dashboard/settings/plan', label: 'Mi Plan', icon: Icons.plan, ownerOnly: true },
 ]
 
 export function Sidebar({ businessName, role }: SidebarProps) {
@@ -160,6 +158,8 @@ export function Sidebar({ businessName, role }: SidebarProps) {
         return hasPermission(role, item.permission)
     })
 
+    const isAccountPage = pathname === '/dashboard/settings/plan'
+
     return (
         <>
             {/* Mobile Header con Hamburger */}
@@ -184,16 +184,27 @@ export function Sidebar({ businessName, role }: SidebarProps) {
 
             {/* Mobile Drawer */}
             <aside className={`mobile-drawer mobile-only ${mobileOpen ? 'open' : ''}`}>
-                <div className="mobile-drawer-header">
-                    <h2 className="mobile-drawer-title">{businessName}</h2>
-                    <span className="mobile-drawer-role">{role}</span>
+                {/* Mobile: Account header clickable */}
+                <Link
+                    href="/dashboard/settings/plan"
+                    className={`mobile-drawer-account ${isAccountPage ? 'mobile-drawer-account--active' : ''}`}
+                    onClick={() => setMobileOpen(false)}
+                >
+                    <div className="mobile-drawer-account__avatar">
+                        {businessName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="mobile-drawer-account__info">
+                        <span className="mobile-drawer-account__name">{businessName}</span>
+                        <span className="mobile-drawer-account__label">Mi cuenta y plan</span>
+                    </div>
+                    <span className="mobile-drawer-account__chevron">{Icons.chevron}</span>
                     <button
                         className="mobile-drawer-close"
-                        onClick={() => setMobileOpen(false)}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMobileOpen(false) }}
                     >
                         {Icons.collapse}
                     </button>
-                </div>
+                </Link>
 
                 <nav className="mobile-drawer-nav">
                     {navItems.map((item) => (
@@ -222,17 +233,22 @@ export function Sidebar({ businessName, role }: SidebarProps) {
 
             {/* Desktop Sidebar - auto-expand on hover */}
             <aside className="sidebar desktop-only sidebar-collapsed">
-                <div className="sidebar-header">
+                {/* Account header — clickable, navigates to account/plan page */}
+                <Link
+                    href="/dashboard/settings/plan"
+                    className={`sidebar-account ${isAccountPage ? 'sidebar-account--active' : ''}`}
+                >
                     <div className="sidebar-logo">
                         {businessName.charAt(0).toUpperCase()}
                     </div>
-                    <div className="sidebar-header-expanded">
-                        <h2 className="sidebar-business-name">
+                    <div className="sidebar-account__expanded">
+                        <span className="sidebar-account__name">
                             {businessName}
-                        </h2>
-                        <span className="text-sm text-muted">{role}</span>
+                        </span>
+                        <span className="sidebar-account__label">Mi cuenta</span>
                     </div>
-                </div>
+                    <span className="sidebar-account__chevron">{Icons.chevron}</span>
+                </Link>
 
                 <nav className="sidebar-nav">
                     {navItems.map((item) => (

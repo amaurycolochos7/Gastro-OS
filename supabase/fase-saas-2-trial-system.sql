@@ -88,18 +88,23 @@ ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- Plans: cualquier autenticado puede ver (es catálogo público)
+DROP POLICY IF EXISTS "plans_select_authenticated" ON plans;
 CREATE POLICY "plans_select_authenticated" ON plans
   FOR SELECT USING (auth.uid() IS NOT NULL);
 
 -- Plans: nadie inserta/modifica desde frontend
+DROP POLICY IF EXISTS "plans_insert_denied" ON plans;
 CREATE POLICY "plans_insert_denied" ON plans
   FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "plans_update_denied" ON plans;
 CREATE POLICY "plans_update_denied" ON plans
   FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "plans_delete_denied" ON plans;
 CREATE POLICY "plans_delete_denied" ON plans
   FOR DELETE USING (false);
 
 -- Subscriptions: tenant isolation (solo leer la tuya)
+DROP POLICY IF EXISTS "subscriptions_select" ON subscriptions;
 CREATE POLICY "subscriptions_select" ON subscriptions
   FOR SELECT USING (
     business_id IN (
@@ -108,10 +113,13 @@ CREATE POLICY "subscriptions_select" ON subscriptions
   );
 
 -- Subscriptions: nadie modifica desde frontend (todo vía RPC o admin)
+DROP POLICY IF EXISTS "subscriptions_insert_denied" ON subscriptions;
 CREATE POLICY "subscriptions_insert_denied" ON subscriptions
   FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "subscriptions_update_denied" ON subscriptions;
 CREATE POLICY "subscriptions_update_denied" ON subscriptions
   FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "subscriptions_delete_denied" ON subscriptions;
 CREATE POLICY "subscriptions_delete_denied" ON subscriptions
   FOR DELETE USING (false);
 
@@ -258,7 +266,7 @@ DECLARE
 BEGIN
   SELECT
     s.id, s.status, s.trial_end, s.current_period_end,
-    s.plan_code_snapshot, s.price_snapshot
+    s.plan_code_snapshot, s.price_snapshot, s.notes
   INTO v_sub
   FROM subscriptions s
   WHERE s.business_id = p_business_id;
@@ -282,7 +290,8 @@ BEGIN
       'is_active', false,
       'status', 'expired',
       'plan_code', v_sub.plan_code_snapshot,
-      'trial_end', v_sub.trial_end
+      'trial_end', v_sub.trial_end,
+      'notes', v_sub.notes
     );
   END IF;
 
@@ -293,7 +302,8 @@ BEGIN
     'status', v_sub.status,
     'plan_code', v_sub.plan_code_snapshot,
     'trial_end', v_sub.trial_end,
-    'current_period_end', v_sub.current_period_end
+    'current_period_end', v_sub.current_period_end,
+    'notes', v_sub.notes
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -305,6 +315,7 @@ GRANT EXECUTE ON FUNCTION get_subscription_status TO authenticated;
 -- 7. TRIGGER: auto-update updated_at en subscriptions
 -- =============================================
 
+DROP TRIGGER IF EXISTS subscriptions_updated_at ON subscriptions;
 CREATE TRIGGER subscriptions_updated_at
   BEFORE UPDATE ON subscriptions
   FOR EACH ROW

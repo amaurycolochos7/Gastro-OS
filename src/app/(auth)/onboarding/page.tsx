@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BusinessType, OperationMode } from '@/lib/types'
@@ -20,9 +20,23 @@ export default function OnboardingPage() {
     const [mode, setMode] = useState<OperationMode | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [checking, setChecking] = useState(true)
 
     const router = useRouter()
     const supabase = createClient()
+
+    // Verificar si el usuario está bloqueado antes de mostrar onboarding
+    useEffect(() => {
+        const checkBlocked = async () => {
+            const { data: isBlocked } = await supabase.rpc('is_user_blocked')
+            if (isBlocked) {
+                router.replace('/account/blocked')
+                return
+            }
+            setChecking(false)
+        }
+        checkBlocked()
+    }, [])
 
     // Counter: 2 pasos (modo → nombre → crear)
     // Restaurant: 3 pasos (modo → nombre → tipo → crear)
@@ -62,6 +76,8 @@ export default function OnboardingPage() {
             if (code === 'ALREADY_HAS_BUSINESS') {
                 setError('Ya tienes un negocio registrado. Redirigiendo...')
                 setTimeout(() => router.push('/dashboard'), 1500)
+            } else if (code === 'ACCOUNT_BLOCKED') {
+                router.replace('/account/blocked')
             } else {
                 setError(data?.message || 'Error al crear el negocio. Intenta de nuevo.')
             }
@@ -71,6 +87,8 @@ export default function OnboardingPage() {
 
         router.push('/dashboard')
     }
+
+    if (checking) return null
 
     return (
         <div className="auth-page">

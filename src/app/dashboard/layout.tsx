@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar'
 import { Role } from '@/lib/types'
 import { BusinessProvider } from '@/lib/context/BusinessContext'
 import { DialogProvider } from '@/lib/context/DialogContext'
+import { SubscriptionGuard } from './components/SubscriptionGuard'
 
 const TERMS_VERSION = 'v2026-02-12'
 
@@ -13,6 +14,7 @@ interface MembershipWithBusiness {
     role: Role
     businesses: {
         name: string
+        deleted_at: string | null
     }
 }
 
@@ -43,7 +45,7 @@ export default async function DashboardLayout({
     // Obtener membresía y negocio (usar limit(1) por si tiene múltiples membresías)
     const { data: membership } = await supabase
         .from('business_memberships')
-        .select('role, business_id, businesses(name)')
+        .select('role, business_id, businesses(name, deleted_at)')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .order('created_at', { ascending: true })
@@ -59,20 +61,28 @@ export default async function DashboardLayout({
         redirect('/onboarding')
     }
 
+    // Verificar si el negocio fue eliminado (soft-delete)
+    const typedMembership = membership as unknown as MembershipWithBusiness
+    if (typedMembership.businesses?.deleted_at) {
+        redirect('/account/blocked')
+    }
+
     // Verificar subscription activa (trial válido o plan activo)
     const { data: subStatus } = await supabase.rpc('get_subscription_status', {
         p_business_id: (membership as any).business_id,
     })
 
     if (!subStatus?.is_active) {
+        if (subStatus?.status === 'suspended') {
+            redirect('/account/suspended')
+        }
         redirect('/billing/upgrade')
     }
-
-    const typedMembership = membership as unknown as MembershipWithBusiness
 
     return (
         <BusinessProvider>
             <DialogProvider>
+                <SubscriptionGuard businessId={(membership as any).business_id} />
                 <div>
                     <Sidebar
                         businessName={typedMembership.businesses.name}
