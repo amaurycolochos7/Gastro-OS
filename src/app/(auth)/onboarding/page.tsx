@@ -5,71 +5,66 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BusinessType, OperationMode } from '@/lib/types'
 
-const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
-    { value: 'taqueria', label: 'Taquería' },
-    { value: 'pizzeria', label: 'Pizzería' },
-    { value: 'cafeteria', label: 'Cafetería' },
-    { value: 'fast_food', label: 'Comida Rápida' },
-    { value: 'other', label: 'Otro' },
-]
-
-const OPERATION_MODES: { value: OperationMode; label: string; description: string }[] = [
-    { value: 'counter', label: 'Mostrador / Food Truck', description: 'Pedidos directos, sin mesas' },
-    { value: 'restaurant', label: 'Restaurante', description: 'Con servicio a mesas' },
+const BUSINESS_TYPES: { value: BusinessType; label: string; emoji: string }[] = [
+    { value: 'taqueria', label: 'Taquería', emoji: '🌮' },
+    { value: 'pizzeria', label: 'Pizzería', emoji: '🍕' },
+    { value: 'cafeteria', label: 'Cafetería', emoji: '☕' },
+    { value: 'fast_food', label: 'Comida Rápida', emoji: '🍔' },
+    { value: 'other', label: 'Otro', emoji: '🍽️' },
 ]
 
 export default function OnboardingPage() {
     const [step, setStep] = useState(1)
     const [name, setName] = useState('')
-    const [type, setType] = useState<BusinessType>('taqueria')
-    const [mode, setMode] = useState<OperationMode>('counter')
+    const [type, setType] = useState<BusinessType>('other')
+    const [mode, setMode] = useState<OperationMode | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
     const router = useRouter()
     const supabase = createClient()
 
+    // Counter: 2 pasos (modo → nombre → crear)
+    // Restaurant: 3 pasos (modo → nombre → tipo → crear)
+    const totalSteps = mode === 'counter' ? 2 : 3
+
+    const handleSelectMode = (selectedMode: OperationMode) => {
+        setMode(selectedMode)
+        setStep(2)
+    }
+
     const handleCreateBusiness = async () => {
-        if (!name.trim()) {
-            setError('El nombre es requerido')
-            return
-        }
+        const finalName = name.trim() || 'Mi negocio'
+        const finalType = mode === 'counter' ? 'other' : type
 
         setLoading(true)
         setError('')
 
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-            router.push('/login')
-            return
-        }
+        const { data, error: rpcError } = await supabase.rpc(
+            'create_business_and_owner_membership',
+            {
+                p_name: finalName,
+                p_type: finalType,
+                p_operation_mode: mode,
+            }
+        )
 
-        const { data: business, error: bizError } = await supabase
-            .from('businesses')
-            .insert({
-                name: name.trim(),
-                type,
-                operation_mode: mode,
-            })
-            .select()
-            .single()
-
-        if (bizError) {
-            setError(bizError.message)
+        if (rpcError) {
+            console.error('[Onboarding] RPC network error:', rpcError)
+            setError('Error de conexión. Intenta de nuevo.')
             setLoading(false)
             return
         }
 
-        const { error: memberError } = await supabase
-            .from('business_memberships')
-            .insert({
-                business_id: business.id,
-                user_id: user.id,
-                role: 'OWNER',
-            })
-
-        if (memberError) {
-            setError(memberError.message)
+        if (!data?.success) {
+            console.warn('[Onboarding] RPC rejected:', data)
+            const code = data?.code || 'UNKNOWN'
+            if (code === 'ALREADY_HAS_BUSINESS') {
+                setError('Ya tienes un negocio registrado. Redirigiendo...')
+                setTimeout(() => router.push('/dashboard'), 1500)
+            } else {
+                setError(data?.message || 'Error al crear el negocio. Intenta de nuevo.')
+            }
             setLoading(false)
             return
         }
@@ -82,13 +77,19 @@ export default function OnboardingPage() {
             <div className="auth-container">
                 <div className="auth-brand">
                     <h1 className="auth-title">GastroOS</h1>
-                    <p className="auth-subtitle">Configurar negocio</p>
+                    <p className="auth-subtitle">
+                        {step === 1
+                            ? 'Empecemos'
+                            : mode === 'counter'
+                                ? 'Casi listo'
+                                : 'Configurar negocio'}
+                    </p>
                 </div>
 
                 <div className="auth-card">
-                    {/* Progress */}
+                    {/* Progress bar */}
                     <div className="flex gap-sm mb-md">
-                        {[1, 2, 3].map((s) => (
+                        {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
                             <div
                                 key={s}
                                 style={{
@@ -96,75 +97,109 @@ export default function OnboardingPage() {
                                     height: 4,
                                     borderRadius: 2,
                                     background: s <= step ? 'var(--color-primary)' : 'var(--border-color)',
+                                    transition: 'background 0.2s',
                                 }}
                             />
                         ))}
                     </div>
 
+                    {/* Step 1: ¿Cómo vendes? */}
                     {step === 1 && (
                         <div className="flex flex-col gap-lg">
-                            <h2 className="auth-card-title">¿Cómo se llama tu negocio?</h2>
+                            <h2 className="auth-card-title">¿Cómo vendes?</h2>
+                            <div className="flex flex-col gap-sm">
+                                <button
+                                    className="card"
+                                    onClick={() => handleSelectMode('counter')}
+                                    style={{
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        padding: '1.25rem',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>Mostrador / Food Truck / Bar</div>
+                                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Pedidos directos, sin mesas · Setup rápido</div>
+                                </button>
+                                <button
+                                    className="card"
+                                    onClick={() => handleSelectMode('restaurant')}
+                                    style={{
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        padding: '1.25rem',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>Restaurante</div>
+                                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', marginTop: '4px' }}>Con servicio a mesas</div>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 2: Nombre (ambos paths) */}
+                    {step === 2 && (
+                        <div className="flex flex-col gap-lg">
+                            <h2 className="auth-card-title">
+                                {mode === 'counter' ? '¿Cómo se llama tu negocio?' : 'Nombre de tu restaurante'}
+                            </h2>
                             <div className="form-group">
-                                <label className="form-label">Nombre del negocio</label>
+                                <label className="form-label">
+                                    Nombre {mode === 'counter' && (
+                                        <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(puedes cambiarlo después)</span>
+                                    )}
+                                </label>
                                 <input
                                     type="text"
                                     className="form-input"
-                                    placeholder="Mi Taquería"
+                                    placeholder={mode === 'counter' ? 'Mi negocio' : 'Nombre del restaurante'}
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     autoFocus
                                 />
                             </div>
-                            <button
-                                className="btn btn-primary btn-lg w-full"
-                                onClick={() => name.trim() && setStep(2)}
-                                disabled={!name.trim()}
-                            >
-                                Continuar
-                            </button>
+
+                            {error && (
+                                <div className="form-error-box">
+                                    <span>!</span> {error}
+                                </div>
+                            )}
+
+                            {mode === 'counter' ? (
+                                /* Counter: crear directo desde aquí */
+                                <button
+                                    className="btn btn-primary btn-lg w-full"
+                                    onClick={handleCreateBusiness}
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Creando...' : '¡Empezar a vender!'}
+                                </button>
+                            ) : (
+                                /* Restaurant: un paso más */
+                                <button
+                                    className="btn btn-primary btn-lg w-full"
+                                    onClick={() => setStep(3)}
+                                >
+                                    Continuar
+                                </button>
+                            )}
                         </div>
                     )}
 
-                    {step === 2 && (
+                    {/* Step 3: Tipo de negocio (solo restaurant) */}
+                    {step === 3 && mode === 'restaurant' && (
                         <div className="flex flex-col gap-lg">
-                            <h2 className="auth-card-title">¿Qué tipo de negocio es?</h2>
+                            <h2 className="auth-card-title">¿Qué tipo de comida?</h2>
                             <div className="flex flex-col gap-sm">
                                 {BUSINESS_TYPES.map((t) => (
                                     <button
                                         key={t.value}
                                         className={`btn ${type === t.value ? 'btn-primary' : 'btn-secondary'} btn-lg`}
                                         onClick={() => setType(t.value)}
+                                        style={{ textAlign: 'left' }}
                                     >
-                                        {t.label}
-                                    </button>
-                                ))}
-                            </div>
-                            <button
-                                className="btn btn-primary btn-lg w-full"
-                                onClick={() => setStep(3)}
-                            >
-                                Continuar
-                            </button>
-                        </div>
-                    )}
-
-                    {step === 3 && (
-                        <div className="flex flex-col gap-lg">
-                            <h2 className="auth-card-title">¿Cómo operas?</h2>
-                            <div className="flex flex-col gap-sm">
-                                {OPERATION_MODES.map((m) => (
-                                    <button
-                                        key={m.value}
-                                        className="card"
-                                        onClick={() => setMode(m.value)}
-                                        style={{
-                                            cursor: 'pointer',
-                                            border: mode === m.value ? '2px solid var(--color-primary)' : undefined,
-                                            textAlign: 'left',
-                                        }}
-                                    >
-                                        <div className="font-bold">{m.label}</div>
-                                        <div className="text-sm text-muted">{m.description}</div>
+                                        {t.emoji} {t.label}
                                     </button>
                                 ))}
                             </div>
@@ -180,12 +215,12 @@ export default function OnboardingPage() {
                                 onClick={handleCreateBusiness}
                                 disabled={loading}
                             >
-                                {loading ? 'Creando...' : 'Crear negocio'}
+                                {loading ? 'Creando...' : 'Crear restaurante'}
                             </button>
                         </div>
                     )}
 
-                    {step > 1 && (
+                    {step > 1 && !loading && (
                         <button
                             className="btn btn-secondary w-full mt-md"
                             onClick={() => setStep(step - 1)}

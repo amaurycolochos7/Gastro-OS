@@ -102,6 +102,12 @@ const Icons = {
             <line x1="10" y1="9" x2="8" y2="9" />
         </svg>
     ),
+    plan: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+            <line x1="1" y1="10" x2="23" y2="10" />
+        </svg>
+    ),
 }
 
 // Items completos para navegacion
@@ -115,6 +121,7 @@ const NAV_ITEMS = [
     { href: '/dashboard/inventory', label: 'Inventario', icon: Icons.inventory, permission: 'inventory:adjust' as const },
     { href: '/dashboard/settings/team', label: 'Equipo', icon: Icons.team, ownerOnly: true },
     { href: '/dashboard/audit', label: 'Auditoría', icon: Icons.audit, ownerOnly: true },
+    { href: '/dashboard/settings/plan', label: 'Mi Plan', icon: Icons.plan, ownerOnly: true },
 ]
 
 export function Sidebar({ businessName, role }: SidebarProps) {

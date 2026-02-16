@@ -43,7 +43,7 @@ export default async function DashboardLayout({
     // Obtener membresía y negocio (usar limit(1) por si tiene múltiples membresías)
     const { data: membership } = await supabase
         .from('business_memberships')
-        .select('role, businesses(name)')
+        .select('role, business_id, businesses(name)')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .order('created_at', { ascending: true })
@@ -51,7 +51,21 @@ export default async function DashboardLayout({
         .single()
 
     if (!membership) {
+        // Si es admin de plataforma, redirigir al panel admin en vez de onboarding
+        const { data: isAdmin } = await supabase.rpc('is_admin')
+        if (isAdmin) {
+            redirect('/admin')
+        }
         redirect('/onboarding')
+    }
+
+    // Verificar subscription activa (trial válido o plan activo)
+    const { data: subStatus } = await supabase.rpc('get_subscription_status', {
+        p_business_id: (membership as any).business_id,
+    })
+
+    if (!subStatus?.is_active) {
+        redirect('/billing/upgrade')
     }
 
     const typedMembership = membership as unknown as MembershipWithBusiness

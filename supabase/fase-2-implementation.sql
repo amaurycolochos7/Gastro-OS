@@ -293,7 +293,7 @@ BEGIN
           type,
           delta,
           ref_entity_id,
-          notes,
+          reason,
           created_by
         )
         VALUES (
@@ -314,9 +314,9 @@ BEGIN
         -- Actualizar stock actual
         IF v_movement_id IS NOT NULL THEN
           UPDATE inventory_items
-          SET current_stock = current_stock + r.quantity
+          SET stock_current = stock_current + r.quantity
           WHERE id = r.inventory_item_id
-          RETURNING current_stock INTO v_new_stock;
+          RETURNING stock_current INTO v_new_stock;
           
           -- Auditoría
           INSERT INTO audit_logs (

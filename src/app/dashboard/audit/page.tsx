@@ -31,7 +31,7 @@ const ACTION_LABELS: Record<string, string> = {
 }
 
 export default function AuditPage() {
-    const { businessId, role, loading: bizLoading } = useBusiness()
+    const { businessId, businessName, role, loading: bizLoading } = useBusiness()
     const supabase = createClient()
 
     const [logs, setLogs] = useState<AuditLog[]>([])
@@ -39,12 +39,10 @@ export default function AuditPage() {
     const [page, setPage] = useState(0)
     const [totalCount, setTotalCount] = useState(0)
 
-    // Filters
     const [actionFilter, setActionFilter] = useState('')
     const [entityFilter, setEntityFilter] = useState('')
-    const [dateRange, setDateRange] = useState('7') // days
+    const [dateRange, setDateRange] = useState('7')
 
-    // Detail modal
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
     const [copied, setCopied] = useState(false)
 
@@ -82,7 +80,6 @@ export default function AuditPage() {
         if (!bizLoading && businessId) loadLogs()
     }, [bizLoading, businessId, loadLogs])
 
-    // Reset page on filter change
     useEffect(() => {
         setPage(0)
     }, [actionFilter, entityFilter, dateRange])
@@ -106,13 +103,12 @@ export default function AuditPage() {
         setTimeout(() => setCopied(false), 2000)
     }
 
-    // Only OWNER can see this page
     if (!bizLoading && role !== 'OWNER' && role !== 'ADMIN') {
         return (
             <div className="audit-page">
-                <div className="audit-empty">
-                    <p>No tienes permisos para ver esta página.</p>
-                    <Link href="/dashboard" className="btn btn-primary">Volver al inicio</Link>
+                <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>
+                    <p className="text-muted">No tienes permisos para ver esta página.</p>
+                    <Link href="/dashboard" className="btn btn-primary" style={{ marginTop: 'var(--spacing-md)' }}>Volver al inicio</Link>
                 </div>
             </div>
         )
@@ -120,19 +116,26 @@ export default function AuditPage() {
 
     return (
         <div className="audit-page">
-            {/* Header */}
-            <div className="audit-header">
+            {/* Header — same pattern as team page */}
+            <div className="page-header">
                 <div>
-                    <h1 className="audit-title">📋 Registro de Auditoría</h1>
-                    <p className="audit-subtitle">Todas las acciones del sistema</p>
+                    <Link href="/dashboard" className="back-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                        Volver
+                    </Link>
+                    <h1>Registro de Auditoría</h1>
+                    <p className="text-muted">
+                        {businessName} &middot; {totalCount} registro{totalCount !== 1 ? 's' : ''}
+                    </p>
                 </div>
-                <Link href="/dashboard" className="btn btn-secondary">← Volver</Link>
             </div>
 
             {/* Filters */}
             <div className="audit-filters">
                 <select
-                    className="audit-select"
+                    className="form-input"
                     value={actionFilter}
                     onChange={(e) => setActionFilter(e.target.value)}
                 >
@@ -143,7 +146,7 @@ export default function AuditPage() {
                 </select>
 
                 <select
-                    className="audit-select"
+                    className="form-input"
                     value={entityFilter}
                     onChange={(e) => setEntityFilter(e.target.value)}
                 >
@@ -154,7 +157,7 @@ export default function AuditPage() {
                 </select>
 
                 <select
-                    className="audit-select"
+                    className="form-input"
                     value={dateRange}
                     onChange={(e) => setDateRange(e.target.value)}
                 >
@@ -165,53 +168,72 @@ export default function AuditPage() {
                 </select>
             </div>
 
-            {/* Table */}
-            <div className="audit-table-wrap">
+            {/* Table Card */}
+            <div className="card audit-card">
                 {loading ? (
-                    <div className="audit-loading">Cargando registros...</div>
+                    <div className="audit-empty">Cargando registros...</div>
                 ) : logs.length === 0 ? (
                     <div className="audit-empty">
-                        <p>No se encontraron registros con estos filtros.</p>
+                        No se encontraron registros con estos filtros.
                     </div>
                 ) : (
-                    <table className="audit-table">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Usuario</th>
-                                <th>Acción</th>
-                                <th>Entidad</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                    <>
+                        {/* Desktop table */}
+                        <table className="audit-table desktop-only">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Usuario</th>
+                                    <th>Acción</th>
+                                    <th>Entidad</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {logs.map((log) => (
+                                    <tr key={log.id} onClick={() => setSelectedLog(log)} className="audit-row-clickable">
+                                        <td className="audit-cell-date">{formatDate(log.created_at)}</td>
+                                        <td className="audit-cell-user">{getActorName(log)}</td>
+                                        <td>
+                                            <span className={`audit-badge action-${log.action}`}>
+                                                {ACTION_LABELS[log.action] || log.action}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span className="audit-badge entity">
+                                                {ENTITY_LABELS[log.entity] || log.entity}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M9 18l6-6-6-6" />
+                                            </svg>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        {/* Mobile cards */}
+                        <div className="audit-mobile-list mobile-only">
                             {logs.map((log) => (
-                                <tr key={log.id}>
-                                    <td className="audit-cell-date">{formatDate(log.created_at)}</td>
-                                    <td className="audit-cell-user">{getActorName(log)}</td>
-                                    <td>
+                                <div key={log.id} className="audit-mobile-item" onClick={() => setSelectedLog(log)}>
+                                    <div className="audit-mobile-top">
+                                        <span className="audit-mobile-date">{formatDate(log.created_at)}</span>
+                                        <span className="audit-mobile-user">{getActorName(log)}</span>
+                                    </div>
+                                    <div className="audit-mobile-badges">
                                         <span className={`audit-badge action-${log.action}`}>
                                             {ACTION_LABELS[log.action] || log.action}
                                         </span>
-                                    </td>
-                                    <td>
                                         <span className="audit-badge entity">
                                             {ENTITY_LABELS[log.entity] || log.entity}
                                         </span>
-                                    </td>
-                                    <td>
-                                        <button
-                                            className="audit-detail-btn"
-                                            onClick={() => setSelectedLog(log)}
-                                            title="Ver detalle"
-                                        >
-                                            👁
-                                        </button>
-                                    </td>
-                                </tr>
+                                    </div>
+                                </div>
                             ))}
-                        </tbody>
-                    </table>
+                        </div>
+                    </>
                 )}
             </div>
 
@@ -219,7 +241,7 @@ export default function AuditPage() {
             {totalPages > 1 && (
                 <div className="audit-pagination">
                     <span className="audit-pagination-info">
-                        Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} de {totalCount}
+                        {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} de {totalCount}
                     </span>
                     <div className="audit-pagination-controls">
                         <button
@@ -227,7 +249,7 @@ export default function AuditPage() {
                             disabled={page === 0}
                             onClick={() => setPage(p => p - 1)}
                         >
-                            ← Anterior
+                            Anterior
                         </button>
                         <span className="audit-pagination-page">
                             {page + 1} / {totalPages}
@@ -237,7 +259,7 @@ export default function AuditPage() {
                             disabled={page >= totalPages - 1}
                             onClick={() => setPage(p => p + 1)}
                         >
-                            Siguiente →
+                            Siguiente
                         </button>
                     </div>
                 </div>
@@ -246,10 +268,10 @@ export default function AuditPage() {
             {/* Detail Modal */}
             {selectedLog && (
                 <div className="modal-overlay" onClick={() => setSelectedLog(null)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
                         <div className="modal-header">
-                            <h2 className="modal-title">Detalle de Auditoría</h2>
-                            <button className="btn-close" onClick={() => setSelectedLog(null)}>×</button>
+                            <h2 className="modal-title">Detalle de registro</h2>
+                            <button className="modal-close" onClick={() => setSelectedLog(null)}>&times;</button>
                         </div>
                         <div className="modal-body">
                             <div className="audit-detail-grid">
@@ -275,7 +297,7 @@ export default function AuditPage() {
                                 </div>
                                 <div className="audit-detail-row">
                                     <span className="audit-detail-label">Usuario</span>
-                                    <span>{getActorName(selectedLog)}</span>
+                                    <span style={{ fontWeight: 500 }}>{getActorName(selectedLog)}</span>
                                 </div>
                             </div>
 
@@ -287,7 +309,7 @@ export default function AuditPage() {
                                             className="audit-copy-btn"
                                             onClick={() => handleCopyJSON(selectedLog.metadata as Record<string, unknown>)}
                                         >
-                                            {copied ? '✓ Copiado' : '📋 Copiar JSON'}
+                                            {copied ? 'Copiado' : 'Copiar JSON'}
                                         </button>
                                     </div>
                                     <pre className="audit-metadata-pre">

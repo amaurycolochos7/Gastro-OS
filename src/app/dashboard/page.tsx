@@ -5,8 +5,17 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useBusiness } from '@/lib/context/BusinessContext'
 
+interface PlanBannerData {
+    plan_name: string
+    plan_code: string
+    status: string
+    trial_end: string | null
+    current_period_end: string | null
+    days_left: number | null
+}
+
 export default function DashboardPage() {
-    const { businessId, businessName, userId, loading: businessLoading } = useBusiness()
+    const { businessId, businessName, role, userId, loading: businessLoading } = useBusiness()
     const [stats, setStats] = useState({
         shiftSales: 0,
         shiftOrders: 0,
@@ -17,6 +26,7 @@ export default function DashboardPage() {
         cashAmount: 0,
         cashRegisterId: null as string | null,
     })
+    const [planData, setPlanData] = useState<PlanBannerData | null>(null)
     const [loading, setLoading] = useState(true)
 
     const supabase = createClient()
@@ -24,7 +34,40 @@ export default function DashboardPage() {
     useEffect(() => {
         if (businessLoading || !businessId || !userId) return
         loadStats()
+        if (role === 'OWNER') loadPlanData()
     }, [businessLoading, businessId, userId])
+
+    const loadPlanData = async () => {
+        const { data: sub } = await supabase
+            .from('subscriptions')
+            .select(`
+                status,
+                trial_end,
+                current_period_end,
+                plan_code_snapshot,
+                plans ( name )
+            `)
+            .eq('business_id', businessId)
+            .single()
+
+        if (sub) {
+            const planInfo = sub.plans as unknown as { name: string } | null
+            const endDate = sub.status === 'trialing' ? sub.trial_end : sub.current_period_end
+            let daysLeft: number | null = null
+            if (endDate) {
+                const diffMs = new Date(endDate).getTime() - Date.now()
+                daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+            }
+            setPlanData({
+                plan_name: planInfo?.name || sub.plan_code_snapshot || 'Sin plan',
+                plan_code: sub.plan_code_snapshot || '',
+                status: sub.status,
+                trial_end: sub.trial_end,
+                current_period_end: sub.current_period_end,
+                days_left: daysLeft,
+            })
+        }
+    }
 
     const loadStats = async () => {
         setLoading(true)
@@ -97,6 +140,25 @@ export default function DashboardPage() {
         ? (stats.todaySales / stats.todayOrders).toFixed(2)
         : '0.00'
 
+    const getPlanStatusLabel = (status: string) => {
+        const m: Record<string, string> = {
+            trialing: 'Prueba',
+            active: 'Activo',
+            past_due: 'Pago pendiente',
+            expired: 'Expirado',
+            canceled: 'Cancelado',
+        }
+        return m[status] || status
+    }
+
+    const getPlanBannerClass = () => {
+        if (!planData) return ''
+        if (planData.status === 'expired' || planData.status === 'canceled') return 'plan-banner-danger'
+        if (planData.status === 'past_due') return 'plan-banner-warning'
+        if (planData.status === 'trialing' && planData.days_left !== null && planData.days_left <= 2) return 'plan-banner-warning'
+        return ''
+    }
+
     if (businessLoading || loading) {
         return (
             <div className="dashboard-page">
@@ -113,6 +175,31 @@ export default function DashboardPage() {
 
     return (
         <div className="dashboard-page">
+            {/* Plan Banner - only for OWNER */}
+            {planData && role === 'OWNER' && (
+                <Link href="/dashboard/settings/plan" className={`plan-banner ${getPlanBannerClass()}`}>
+                    <div className="plan-banner-left">
+                        <span className="plan-banner-name">{planData.plan_name}</span>
+                        <span className={`plan-banner-status plan-banner-status--${planData.status}`}>
+                            {getPlanStatusLabel(planData.status)}
+                        </span>
+                    </div>
+                    <div className="plan-banner-right">
+                        {planData.days_left !== null && (
+                            <span className={`plan-banner-days ${planData.days_left <= 2 ? 'urgent' : ''}`}>
+                                {planData.days_left <= 0
+                                    ? 'Expirado'
+                                    : `${planData.days_left} dia${planData.days_left !== 1 ? 's' : ''} restante${planData.days_left !== 1 ? 's' : ''}`
+                                }
+                            </span>
+                        )}
+                        <svg className="plan-banner-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </div>
+                </Link>
+            )}
+
             <div className="dashboard-header">
                 <div>
                     <h1 className="dashboard-title">
@@ -227,4 +314,3 @@ export default function DashboardPage() {
         </div>
     )
 }
-

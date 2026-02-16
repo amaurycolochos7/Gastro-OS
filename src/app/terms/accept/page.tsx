@@ -81,7 +81,7 @@ export default function AcceptTermsPage() {
                 textAlign: 'center',
                 boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
             }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+
 
                 <h1 style={{
                     fontSize: '1.5rem',

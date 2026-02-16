@@ -57,9 +57,9 @@ BEGIN
 
     -- Actualizar stock
     UPDATE inventory_items
-    SET current_stock = current_stock - r.quantity
+    SET stock_current = stock_current - r.quantity
     WHERE id = r.inventory_item_id
-    RETURNING current_stock INTO v_new_stock;
+    RETURNING stock_current INTO v_new_stock;
 
     -- Registrar movimiento
     -- CAMBIO CRÍTICO: ref_entity_id = NEW.id (payment.id, no order_id)
@@ -69,7 +69,7 @@ BEGIN
       type,
       delta,
       ref_entity_id,  -- payment.id
-      notes,
+      reason,
       created_by
     ) VALUES (
       r.inventory_item_id,
