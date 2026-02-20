@@ -1,8 +1,3 @@
--- =============================================
--- GastroOS - Admin: Desasignar Plan
--- EJECUTAR EN SUPABASE SQL EDITOR
--- =============================================
--- Permite a admins cancelar/desasignar el plan de un negocio.
 
 CREATE OR REPLACE FUNCTION admin_unassign_plan(
   p_business_id uuid,

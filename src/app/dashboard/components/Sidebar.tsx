@@ -107,6 +107,13 @@ const Icons = {
             <polyline points="9 18 15 12 9 6" />
         </svg>
     ),
+    analytics: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+        </svg>
+    ),
 }
 
 // Items de navegacion (sin Mi Plan—se movio al header de cuenta)
@@ -114,6 +121,7 @@ const NAV_ITEMS = [
     { href: '/dashboard', label: 'Inicio', icon: Icons.home },
     { href: '/dashboard/pos', label: 'Punto de Venta', icon: Icons.pos, permission: 'order:create' as const },
     { href: '/dashboard/orders', label: 'Ordenes', icon: Icons.orders, permission: 'order:create' as const },
+    { href: '/dashboard/analytics', label: 'Analítica', icon: Icons.analytics, permission: 'report:sales' as const },
     { href: '/dashboard/kitchen', label: 'Cocina', icon: Icons.kitchen, permission: 'order:change_status' as const },
     { href: '/dashboard/cash', label: 'Caja', icon: Icons.cash, permission: 'cash_register:open' as const },
     { href: '/dashboard/menu', label: 'Menu', icon: Icons.menu, permission: 'product:create' as const },
