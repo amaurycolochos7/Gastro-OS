@@ -1604,20 +1604,26 @@ select.form-input option {
 @media (max-width: 768px) {
   .login-split {
     flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100vh;
+    height: 100dvh;
   }
 
   .login-hero {
     flex: none;
-    min-height: 240px;
-    max-height: 35vh;
+    height: 200px;
+    min-height: unset;
+    max-height: 200px;
   }
 
   .login-hero-overlay {
-    padding: 20px;
+    padding: 16px 20px;
   }
 
   .login-hero-title {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
+    margin-bottom: 4px;
   }
 
   .login-hero-desc,
@@ -1626,8 +1632,52 @@ select.form-input option {
   }
 
   .login-form-side {
-    flex: 1;
-    padding: 24px 20px;
+    flex: 1 1 auto;
+    padding: 20px 16px;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .login-form-wrapper {
+    max-width: 100%;
+    gap: 12px;
+  }
+
+  .auth-brand {
+    margin-bottom: 0;
+  }
+
+  .auth-title {
+    font-size: var(--font-size-xl);
+  }
+
+  .auth-card {
+    padding: var(--spacing-md);
+  }
+
+  .auth-card-title {
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .auth-divider {
+    margin: var(--spacing-md) 0;
+  }
+
+  .login-footer {
+    padding-bottom: 12px;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 768px) and (max-height: 600px) {
+  .login-hero {
+    height: 140px;
+    max-height: 140px;
+  }
+
+  .login-hero-title {
+    font-size: 1rem;
   }
 }
 
