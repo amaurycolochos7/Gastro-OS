@@ -1476,13 +1476,14 @@ select.form-input option {
 /* Auth pages - Split Screen Login */
 .login-split {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .login-hero {
   position: relative;
   flex: 0 0 50%;
-  min-height: 100vh;
+  height: 100vh;
   overflow: hidden;
 }
 
@@ -1539,8 +1540,8 @@ select.form-input option {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%);
-  padding: 40px;
-  overflow-y: auto;
+  padding: 24px 40px;
+  overflow: hidden;
 }
 
 .login-form-wrapper {
@@ -1549,7 +1550,7 @@ select.form-input option {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
 
 .login-logo-icon {

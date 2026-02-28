@@ -78,11 +78,6 @@ export default function LoginPage() {
                 <div className="login-form-wrapper">
                     {/* Branding */}
                     <div className="auth-brand">
-                        <div className="login-logo-icon">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 2h18v4H3z" /><path d="M3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6" /><path d="M10 12h4" /><path d="M12 10v4" />
-                            </svg>
-                        </div>
                         <h1 className="auth-title">GastroOS</h1>
                         <p className="auth-subtitle">Sistema de punto de venta</p>
                     </div>
