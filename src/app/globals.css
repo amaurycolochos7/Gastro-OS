@@ -1473,7 +1473,163 @@ select.form-input option {
   min-width: 24px;
 }
 
-/* Auth pages - Premium Design */
+/* Auth pages - Split Screen Login */
+.login-split {
+  display: flex;
+  min-height: 100vh;
+}
+
+.login-hero {
+  position: relative;
+  flex: 0 0 50%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.login-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.1) 100%);
+  display: flex;
+  align-items: flex-end;
+  padding: 48px;
+}
+
+.login-hero-content {
+  color: #fff;
+  max-width: 480px;
+}
+
+.login-hero-title {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+
+.login-hero-desc {
+  font-size: 1rem;
+  opacity: 0.85;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.login-hero-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-hero-feature {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.login-hero-feature svg {
+  color: #a5b4fc;
+  flex-shrink: 0;
+}
+
+.login-form-side {
+  flex: 0 0 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%);
+  padding: 40px;
+  overflow-y: auto;
+}
+
+.login-form-wrapper {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.login-logo-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  margin-bottom: 4px;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+
+.login-input-icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.login-input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.login-input-with-icon {
+  padding-left: 44px !important;
+}
+
+.login-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-ssl-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* Mobile: stack layout */
+@media (max-width: 768px) {
+  .login-split {
+    flex-direction: column;
+  }
+
+  .login-hero {
+    flex: none;
+    min-height: 240px;
+    max-height: 35vh;
+  }
+
+  .login-hero-overlay {
+    padding: 20px;
+  }
+
+  .login-hero-title {
+    font-size: 1.3rem;
+  }
+
+  .login-hero-desc,
+  .login-hero-features {
+    display: none;
+  }
+
+  .login-form-side {
+    flex: 1;
+    padding: 24px 20px;
+  }
+}
+
 .auth-page {
   min-height: 100vh;
   display: flex;
