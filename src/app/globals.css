@@ -7175,43 +7175,258 @@ select.form-input option {
   color: var(--text-muted, var(--text-secondary));
 }
 
+/* ═══ Update Flyer / Announcement Modal ═══ */
+
+.update-flyer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 1rem;
+  animation: flyer-fade-in 0.3s ease-out;
+}
+
+@keyframes flyer-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes flyer-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.update-flyer-card {
+  background: #fff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: flyer-slide-up 0.4s ease-out 0.1s both;
+}
+
+.update-flyer-header {
+  background: linear-gradient(135deg, var(--color-primary, #6c3ce0) 0%, #8b5cf6 50%, #a78bfa 100%);
+  padding: 2rem 1.5rem 1.5rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.update-flyer-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 40%);
+}
+
+.update-flyer-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  padding: 3px 12px;
+  border-radius: 20px;
+  margin-bottom: 0.75rem;
+  position: relative;
+}
+
+.update-flyer-icon {
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+  position: relative;
+}
+
+.update-flyer-title {
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  position: relative;
+}
+
+.update-flyer-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
+  margin: 0;
+  position: relative;
+}
+
+.update-flyer-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.update-flyer-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #f8f7ff;
+  border-radius: 12px;
+  border: 1px solid #ede9fe;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.update-flyer-feature:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(108, 60, 224, 0.08);
+}
+
+.update-flyer-feature-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.update-flyer-feature strong {
+  display: block;
+  font-size: 0.85rem;
+  color: #1a1a2e;
+  margin-bottom: 2px;
+}
+
+.update-flyer-feature p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.update-flyer-setup {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+.update-flyer-setup svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #d97706;
+}
+
+.update-flyer-footer {
+  padding: 0 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.update-flyer-btn {
+  width: 100%;
+  padding: 0.8rem;
+  background: linear-gradient(135deg, var(--color-primary, #6c3ce0), #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.update-flyer-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(108, 60, 224, 0.35);
+}
+
+.update-flyer-btn:active {
+  transform: scale(0.98);
+}
+
+.update-flyer-dismiss-link {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.15s;
+}
+
+.update-flyer-dismiss-link:hover {
+  color: #6b7280;
+  text-decoration: underline;
+}
+
 /* Print Styles - Show only ticket */
 @media print {
   @page {
     margin: 0;
-    size: auto;
-  }
-
-  body * {
-    visibility: hidden;
+    size: 80mm auto;
   }
 
   html,
   body {
-    height: auto;
-    overflow: visible;
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
   }
 
-  #ticket-root,
-  #ticket-root *,
-  #closing-ticket-root,
-  #closing-ticket-root * {
-    visibility: visible;
+  /* Hide everything EXCEPT ticket roots (which are direct body children via portal) */
+  body>*:not(#ticket-root):not(#closing-ticket-root) {
+    display: none !important;
   }
 
+  /* Show and style the ticket */
   #ticket-root,
   #closing-ticket-root {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
     display: block !important;
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  #ticket-root *,
+  #closing-ticket-root * {
+    color: #000 !important;
   }
 }
+
 
 .kds-order-new {
   animation: kitchen-pulse 0.6s ease-out;

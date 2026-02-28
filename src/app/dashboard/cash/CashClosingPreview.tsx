@@ -1,5 +1,7 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { CashRegisterSummary } from '@/lib/types'
 
 interface CashClosingPreviewProps {
@@ -25,13 +27,16 @@ export default function CashClosingPreview({
     calculatedDifference,
     closingNotes
 }: CashClosingPreviewProps) {
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => { setMounted(true) }, [])
+
     const formatDate = (isoString: string) => {
         if (!isoString) return '-'
         const d = new Date(isoString)
         return `${d.toLocaleDateString('es-MX')} ${d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`
     }
 
-    return (
+    const ticketContent = (
         <div id="closing-ticket-root" style={{ display: 'none' }}>
             <div style={{
                 fontFamily: "'Courier New', monospace",
@@ -143,4 +148,8 @@ export default function CashClosingPreview({
             </div>
         </div>
     )
+
+    if (!mounted) return null
+    return createPortal(ticketContent, document.body)
 }
+

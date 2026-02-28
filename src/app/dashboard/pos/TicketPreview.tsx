@@ -1,5 +1,8 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+
 interface TicketProps {
     businessName: string
     folio: string
@@ -36,6 +39,9 @@ export default function TicketPreview({
     cashReceived,
     changeAmount,
 }: TicketProps) {
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => { setMounted(true) }, [])
+
     const formatDate = (isoString: string) => {
         const d = new Date(isoString)
         return `${d.toLocaleDateString('es-MX')} ${d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`
@@ -53,7 +59,7 @@ export default function TicketPreview({
         transfer: 'Transferencia',
     }[paymentMethod]
 
-    return (
+    const ticketContent = (
         <div id="ticket-root" style={{ display: 'none' }}>
             <div style={{
                 fontFamily: "'Courier New', monospace",
@@ -144,4 +150,8 @@ export default function TicketPreview({
             </div>
         </div>
     )
+
+    if (!mounted) return null
+    return createPortal(ticketContent, document.body)
 }
+

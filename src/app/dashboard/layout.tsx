@@ -5,6 +5,7 @@ import { Role } from '@/lib/types'
 import { BusinessProvider } from '@/lib/context/BusinessContext'
 import { DialogProvider } from '@/lib/context/DialogContext'
 import { SubscriptionGuard } from './components/SubscriptionGuard'
+import UpdateFlyer from './components/UpdateFlyer'
 
 const TERMS_VERSION = 'v2026-02-12'
 
@@ -92,6 +93,7 @@ export default async function DashboardLayout({
                         {children}
                     </main>
                 </div>
+                <UpdateFlyer />
             </DialogProvider>
         </BusinessProvider>
     )

@@ -124,6 +124,14 @@ export default function POSPage() {
     const [cancellingOrder, setCancellingOrder] = useState<OpenOrder | null>(null)
     const [cancelReason, setCancelReason] = useState('')
 
+    // Reprint from sidebar
+    const [reprintOrder, setReprintOrder] = useState<{
+        folio: string; date: string; serviceType: 'dine_in' | 'takeaway' | 'delivery';
+        items: { name: string; quantity: number; price: number; notes?: string }[];
+        subtotal: number; discountAmount: number; discountReason?: string; total: number;
+        paymentMethod: 'cash' | 'card' | 'transfer';
+    } | null>(null)
+
     // Realtime
     const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting')
     const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -464,6 +472,34 @@ export default function POSPage() {
         loadOpenOrders()
     }
 
+    const handleReprintFromSidebar = async (order: OpenOrder) => {
+        // Fetch full order data
+        const { data: fullOrder } = await supabase
+            .from('orders').select('*').eq('id', order.id).single()
+        // Fetch payment
+        const { data: payment } = await supabase
+            .from('payments').select('*').eq('order_id', order.id).eq('status', 'paid').limit(1).single()
+
+        const orderTotal = order.items.reduce((s, i) => s + i.price_snapshot * i.quantity, 0)
+        const subtotal = fullOrder?.subtotal_snapshot ?? orderTotal
+        const discount = fullOrder?.discount_amount ?? 0
+        const total = fullOrder?.total_snapshot ?? (subtotal - discount)
+
+        setReprintOrder({
+            folio: order.folio,
+            date: order.created_at,
+            serviceType: (order.service_type as 'dine_in' | 'takeaway' | 'delivery') || 'dine_in',
+            items: order.items.map(i => ({ name: i.name_snapshot, quantity: i.quantity, price: i.price_snapshot, notes: i.notes })),
+            subtotal,
+            discountAmount: discount,
+            discountReason: fullOrder?.discount_reason || undefined,
+            total,
+            paymentMethod: (payment?.method as 'cash' | 'card' | 'transfer') || 'cash',
+        })
+
+        setTimeout(() => { window.print() }, 150)
+    }
+
     const handleOpenPaymentForOrder = async (order: OpenOrder) => {
         // Fetch sum of existing paid payments for this order
         const { data: payments } = await supabase
@@ -473,8 +509,20 @@ export default function POSPage() {
             .eq('status', 'paid')
             .is('deleted_at', null)
         const paidSoFar = (payments || []).reduce((s: number, p: { amount: number }) => s + Number(p.amount), 0)
-        setAlreadyPaidAmount(paidSoFar)
 
+        // Check if already fully paid
+        const orderTotal = order.items.reduce((s, i) => s + i.price_snapshot * i.quantity, 0)
+        if (paidSoFar >= orderTotal) {
+            // Already fully paid — just mark as PAID if not already
+            if (order.status !== 'PAID') {
+                await supabase.from('orders').update({ status: 'PAID' }).eq('id', order.id)
+                loadOpenOrders()
+            }
+            showToast(`Orden ${order.table_number || order.folio} ya está pagada`, 'error')
+            return
+        }
+
+        setAlreadyPaidAmount(paidSoFar)
         setPayingOpenOrderId(order.id)
         setEditingOrderId(order.id)
         setEditingOrderLabel(order.table_number || order.folio)
@@ -487,6 +535,15 @@ export default function POSPage() {
 
     const handlePayment = async () => {
         if (!cashRegister) { showToast('Debes abrir caja antes de cobrar', 'error'); return }
+
+        // Validate cash amount when paying with cash
+        if (paymentMethod === 'cash') {
+            const received = parseFloat(cashReceived) || 0
+            if (received < payingTotal) {
+                showToast('El monto recibido debe ser igual o mayor al total', 'error')
+                return
+            }
+        }
 
         // If paying an open order
         if (payingOpenOrderId) {
@@ -861,11 +918,18 @@ export default function POSPage() {
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></svg> Retomar
                                         </button>
                                         {order.status === 'PAID' ? (
-                                            <button className="pos-card-action-btn pos-card-action-finalizar"
-                                                onClick={(e) => { e.stopPropagation(); handleFinalizeOrder(order) }}
-                                                disabled={processing}>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg> Finalizar
-                                            </button>
+                                            <>
+                                                <button className="pos-card-action-btn pos-card-action-finalizar"
+                                                    onClick={(e) => { e.stopPropagation(); handleFinalizeOrder(order) }}
+                                                    disabled={processing}>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg> Finalizar
+                                                </button>
+                                                <button className="pos-card-action-btn pos-card-action-retomar"
+                                                    onClick={(e) => { e.stopPropagation(); handleReprintFromSidebar(order) }}
+                                                    title="Reimprimir ticket">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+                                                </button>
+                                            </>
                                         ) : (
                                             <>
                                                 {operationMode === 'counter' && (
@@ -1044,7 +1108,8 @@ export default function POSPage() {
                                         )}
                                     </div>
                                 )}
-                                <button className="payment-confirm-btn" onClick={handlePayment} disabled={processing}>
+                                <button className="payment-confirm-btn" onClick={handlePayment}
+                                    disabled={processing || payingTotal <= 0 || (paymentMethod === 'cash' && (parseFloat(cashReceived) || 0) < payingTotal)}>
                                     {processing ? (
                                         <>
                                             <svg className="payment-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1140,6 +1205,18 @@ export default function POSPage() {
                         discountReason={completedOrder.discountReason} total={completedOrder.total}
                         paymentMethod={completedOrder.paymentMethod}
                         cashReceived={completedOrder.cashReceived} changeAmount={completedOrder.changeAmount} />
+                )
+            }
+
+            {/* Reprint ticket from sidebar */}
+            {
+                reprintOrder && (
+                    <TicketPreview businessName={businessName} folio={reprintOrder.folio} date={reprintOrder.date}
+                        serviceType={reprintOrder.serviceType}
+                        items={reprintOrder.items}
+                        subtotal={reprintOrder.subtotal} discountAmount={reprintOrder.discountAmount}
+                        discountReason={reprintOrder.discountReason} total={reprintOrder.total}
+                        paymentMethod={reprintOrder.paymentMethod} />
                 )
             }
 
