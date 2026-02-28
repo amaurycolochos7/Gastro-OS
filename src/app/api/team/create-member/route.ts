@@ -1,22 +1,23 @@
-'use server'
-
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Crear cliente con service role para operaciones admin
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
+// Lazy-init: se crea en runtime, no en build time
+function getSupabaseAdmin() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
         }
-    }
-)
+    )
+}
 
 export async function POST(request: NextRequest) {
     try {
+        const supabaseAdmin = getSupabaseAdmin()
         const body = await request.json()
         const { name, email, phone, password, role, businessId, creatorUserId } = body
 
