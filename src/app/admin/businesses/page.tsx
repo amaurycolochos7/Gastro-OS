@@ -171,7 +171,7 @@ const timeAgo = (date: string): string => {
     const d = new Date(date)
     const diffMs = now.getTime() - d.getTime()
     const diffMin = Math.floor(diffMs / 60000)
-    if (diffMin < 1) return 'ahora'
+    if (diffMin < 3) return '● En línea'
     if (diffMin < 60) return `hace ${diffMin}m`
     const diffH = Math.floor(diffMin / 60)
     if (diffH < 24) return `hace ${diffH}h`
@@ -1016,9 +1016,19 @@ export default function AdminBusinessesPage() {
                                     </div>
                                     <div className="admin-insight-item">
                                         <span className="admin-insight-label">Actividad</span>
-                                        <span className="admin-insight-value" title={biz.last_activity ? formatDateTime(biz.last_activity) : ''}>
-                                            {biz.last_activity ? timeAgo(biz.last_activity) : '—'}
-                                        </span>
+                                        {(() => {
+                                            const actText = biz.last_activity ? timeAgo(biz.last_activity) : '—'
+                                            const isOnline = actText.includes('En línea')
+                                            return (
+                                                <span
+                                                    className="admin-insight-value"
+                                                    title={biz.last_activity ? formatDateTime(biz.last_activity) : ''}
+                                                    style={isOnline ? { color: '#22c55e', fontWeight: 600 } : undefined}
+                                                >
+                                                    {actText}
+                                                </span>
+                                            )
+                                        })()}
                                     </div>
                                     {(() => {
                                         const signal = getUpsellSignal(biz)

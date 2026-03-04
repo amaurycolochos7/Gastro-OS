@@ -139,6 +139,14 @@ export function Sidebar({ businessName, role }: SidebarProps) {
     // Estado del drawer movil
     const [mobileOpen, setMobileOpen] = useState(false)
 
+    // Heartbeat: registrar actividad cada 60s para tracking en admin panel
+    useEffect(() => {
+        const ping = () => { supabase.rpc('heartbeat').then(() => { }, () => { }) }
+        ping() // Ping inmediato al montar
+        const interval = setInterval(ping, 60_000)
+        return () => clearInterval(interval)
+    }, [])
+
     // Cerrar drawer al cambiar de ruta
     useEffect(() => {
         setMobileOpen(false)
