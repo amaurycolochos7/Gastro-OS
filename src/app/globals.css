@@ -7951,6 +7951,14 @@ select.form-input option {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+/* Tablet (ej. iPad landscape ~1024px): columnas fijas más angostas para
+   dejarle espacio real al catálogo de productos */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .pos-layout-v2 {
+    grid-template-columns: 1fr 320px 280px;
+  }
+}
+
 /* ═══ LEFT: Product Catalog ═══ */
 .pos-layout-v2>.pos-products {
   background: #F4F6FA;

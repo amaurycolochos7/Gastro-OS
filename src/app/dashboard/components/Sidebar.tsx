@@ -11,6 +11,7 @@ import { useDialog } from '@/lib/context/DialogContext'
 interface SidebarProps {
     businessName: string
     role: Role
+    kitchenEnabled: boolean
 }
 
 // Iconos SVG modernos estilo Lucide
@@ -114,6 +115,12 @@ const Icons = {
             <line x1="6" y1="20" x2="6" y2="14" />
         </svg>
     ),
+    settings: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+    ),
 }
 
 // Items de navegacion (sin Mi Plan—se movio al header de cuenta)
@@ -122,15 +129,16 @@ const NAV_ITEMS = [
     { href: '/dashboard/pos', label: 'Punto de Venta', icon: Icons.pos, permission: 'order:create' as const },
     { href: '/dashboard/orders', label: 'Ordenes', icon: Icons.orders, permission: 'order:create' as const },
     { href: '/dashboard/analytics', label: 'Analítica', icon: Icons.analytics, permission: 'report:sales' as const },
-    { href: '/dashboard/kitchen', label: 'Cocina', icon: Icons.kitchen, permission: 'order:change_status' as const },
+    { href: '/dashboard/kitchen', label: 'Cocina', icon: Icons.kitchen, permission: 'order:change_status' as const, kitchenOnly: true },
     { href: '/dashboard/cash', label: 'Caja', icon: Icons.cash, permission: 'cash_register:open' as const },
     { href: '/dashboard/menu', label: 'Menu', icon: Icons.menu, permission: 'product:create' as const },
     { href: '/dashboard/inventory', label: 'Inventario', icon: Icons.inventory, permission: 'inventory:adjust' as const },
     { href: '/dashboard/settings/team', label: 'Equipo', icon: Icons.team, ownerOnly: true },
+    { href: '/dashboard/settings/business', label: 'Configuración', icon: Icons.settings, ownerOnly: true },
     { href: '/dashboard/audit', label: 'Auditoría', icon: Icons.audit, ownerOnly: true },
 ]
 
-export function Sidebar({ businessName, role }: SidebarProps) {
+export function Sidebar({ businessName, role, kitchenEnabled }: SidebarProps) {
     const pathname = usePathname()
     const router = useRouter()
     const supabase = createClient()
@@ -167,6 +175,7 @@ export function Sidebar({ businessName, role }: SidebarProps) {
     }
 
     const navItems = NAV_ITEMS.filter(item => {
+        if ('kitchenOnly' in item && item.kitchenOnly && !kitchenEnabled) return false
         if ('ownerOnly' in item && item.ownerOnly) {
             return role === 'OWNER'
         }

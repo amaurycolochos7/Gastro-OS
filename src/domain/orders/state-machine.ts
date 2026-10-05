@@ -2,9 +2,10 @@ import { OrderStatus } from '@/lib/types'
 
 // Transiciones válidas de estado
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-    'OPEN': ['IN_PREP', 'CANCELLED'],
-    'IN_PREP': ['READY', 'CANCELLED'],
-    'READY': ['DELIVERED', 'CLOSED'],
+    'OPEN': ['IN_PREP', 'PAID', 'CANCELLED'],
+    'IN_PREP': ['READY', 'PAID', 'CANCELLED'],
+    'READY': ['DELIVERED', 'PAID', 'CLOSED'],
+    'PAID': ['DELIVERED', 'CLOSED'],
     'DELIVERED': ['CLOSED'],
     'CLOSED': [],
     'CANCELLED': [],
@@ -36,6 +37,7 @@ export const STATUS_COLORS: Record<OrderStatus, string> = {
     'OPEN': 'var(--color-primary)',
     'IN_PREP': 'var(--color-warning)',
     'READY': 'var(--color-success)',
+    'PAID': 'var(--color-success)',
     'DELIVERED': 'var(--color-muted)',
     'CLOSED': 'var(--color-muted)',
     'CANCELLED': 'var(--color-danger)',
@@ -45,6 +47,7 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
     'OPEN': 'Abierta',
     'IN_PREP': 'En preparación',
     'READY': 'Lista',
+    'PAID': 'Pagada',
     'DELIVERED': 'Entregada',
     'CLOSED': 'Cerrada',
     'CANCELLED': 'Cancelada',

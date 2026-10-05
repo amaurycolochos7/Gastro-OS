@@ -2,7 +2,7 @@
 
 export type Role = 'OWNER' | 'ADMIN' | 'CASHIER' | 'KITCHEN' | 'INVENTORY'
 
-export type OrderStatus = 'OPEN' | 'IN_PREP' | 'READY' | 'DELIVERED' | 'CLOSED' | 'CANCELLED'
+export type OrderStatus = 'OPEN' | 'IN_PREP' | 'READY' | 'PAID' | 'DELIVERED' | 'CLOSED' | 'CANCELLED'
 
 export type ServiceType = 'dine_in' | 'takeaway' | 'delivery'
 
@@ -35,6 +35,7 @@ export interface Business {
     name: string
     type: BusinessType
     operation_mode: OperationMode
+    kitchen_enabled: boolean
     logo_url: string | null
     limits_products: number
     limits_orders_day: number

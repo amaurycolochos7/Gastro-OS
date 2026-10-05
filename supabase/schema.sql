@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS businesses (
   name text NOT NULL,
   type text NOT NULL CHECK (type IN ('taqueria', 'pizzeria', 'cafeteria', 'fast_food', 'other')),
   operation_mode text NOT NULL DEFAULT 'counter' CHECK (operation_mode IN ('counter', 'restaurant')),
+  kitchen_enabled boolean NOT NULL DEFAULT true,
   logo_url text,
   limits_products integer DEFAULT 100,
   limits_orders_day integer DEFAULT 200,
@@ -39,6 +40,24 @@ CREATE TABLE IF NOT EXISTS businesses (
 COMMENT ON COLUMN businesses.deleted_at IS 'Soft-delete: si no es NULL, el negocio está eliminado';
 COMMENT ON COLUMN businesses.default_keep_float_amount IS 'Fondo sugerido para dejar en caja al cerrar turno';
 COMMENT ON COLUMN businesses.cash_difference_threshold IS 'Umbral de diferencia para exigir notas de cierre';
+
+-- Migración idempotente para bases ya desplegadas antes de este cambio.
+-- Solo corre el backfill la primera vez (si la columna ya existe, no se
+-- vuelve a tocar para no pisar el valor que un OWNER haya configurado a mano).
+-- Debe ir ANTES del COMMENT de abajo: en una base ya existente la columna
+-- todavía no existe hasta que este bloque la agrega.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'businesses' AND column_name = 'kitchen_enabled'
+  ) THEN
+    ALTER TABLE businesses ADD COLUMN kitchen_enabled boolean NOT NULL DEFAULT true;
+    UPDATE businesses SET kitchen_enabled = (operation_mode = 'restaurant');
+  END IF;
+END $$;
+
+COMMENT ON COLUMN businesses.kitchen_enabled IS 'Si el negocio usa la pantalla/flujo de Cocina. Por defecto true, pero se fija en false al crear negocios en operation_mode=counter (bar/mostrador) y es configurable por el OWNER en Configuración.';
 
 -- Membresías (Auth + Roles)
 CREATE TABLE IF NOT EXISTS business_memberships (
@@ -167,7 +186,7 @@ CREATE TABLE IF NOT EXISTS orders (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   business_id uuid NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
   folio text NOT NULL,
-  status text NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PREP', 'READY', 'DELIVERED', 'CLOSED', 'CANCELLED')),
+  status text NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PREP', 'READY', 'PAID', 'DELIVERED', 'CLOSED', 'CANCELLED')),
   service_type text NOT NULL DEFAULT 'dine_in' CHECK (service_type IN ('dine_in', 'takeaway', 'delivery')),
   table_number text,
   subtotal_snapshot numeric(10,2),
@@ -183,6 +202,13 @@ CREATE TABLE IF NOT EXISTS orders (
   updated_at timestamptz DEFAULT now(),
   deleted_at timestamptz
 );
+
+-- Migración idempotente: amplía el CHECK de orders.status para bases ya
+-- desplegadas donde el constraint se creó antes de agregar 'PAID'
+-- (estado "cobrada, pendiente de finalizar/entregar" en modo mostrador).
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
+ALTER TABLE orders ADD CONSTRAINT orders_status_check
+  CHECK (status IN ('OPEN', 'IN_PREP', 'READY', 'PAID', 'DELIVERED', 'CLOSED', 'CANCELLED'));
 
 -- Items de orden
 CREATE TABLE IF NOT EXISTS order_items (
@@ -1350,8 +1376,8 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'code', 'UNKNOWN', 'message', 'Plan demo no encontrado. Contacta soporte.');
   END IF;
 
-  INSERT INTO businesses (name, type, operation_mode)
-  VALUES (trim(p_name), p_type, p_operation_mode)
+  INSERT INTO businesses (name, type, operation_mode, kitchen_enabled)
+  VALUES (trim(p_name), p_type, p_operation_mode, p_operation_mode = 'restaurant')
   RETURNING id INTO v_business_id;
 
   INSERT INTO business_memberships (business_id, user_id, role, status)
@@ -1500,6 +1526,39 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 REVOKE ALL ON FUNCTION change_business_plan FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION change_business_plan TO authenticated;
+
+CREATE OR REPLACE FUNCTION set_kitchen_enabled(
+  p_business_id uuid,
+  p_enabled boolean
+)
+RETURNS jsonb AS $$
+DECLARE
+  v_user_id uuid;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'code', 'AUTH_ERROR', 'message', 'No autenticado');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM business_memberships
+    WHERE business_id = p_business_id AND user_id = v_user_id AND role = 'OWNER' AND status = 'active'
+  ) THEN
+    RETURN jsonb_build_object('success', false, 'code', 'FORBIDDEN', 'message', 'No eres dueño de este negocio');
+  END IF;
+
+  UPDATE businesses SET kitchen_enabled = p_enabled WHERE id = p_business_id;
+
+  RETURN jsonb_build_object('success', true, 'code', 'KITCHEN_SETTING_UPDATED', 'kitchen_enabled', p_enabled);
+
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'code', 'UNKNOWN', 'message', SQLERRM);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+REVOKE ALL ON FUNCTION set_kitchen_enabled FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION set_kitchen_enabled TO authenticated;
 
 -- =============================================
 -- FUNCTIONS — bloqueo de usuarios

@@ -84,6 +84,7 @@ export default function POSPage() {
     const [loading, setLoading] = useState(true)
     const [businessId, setBusinessId] = useState<string>('')
     const [operationMode, setOperationMode] = useState<'restaurant' | 'counter'>('restaurant')
+    const [kitchenEnabled, setKitchenEnabled] = useState(true)
     const [businessName, setBusinessName] = useState('')
 
     // Builder state
@@ -187,10 +188,11 @@ export default function POSPage() {
         if (!membership) return
         setBusinessId(membership.business_id)
         const { data: business } = await supabase
-            .from('businesses').select('operation_mode, name')
+            .from('businesses').select('operation_mode, kitchen_enabled, name')
             .eq('id', membership.business_id).single()
         if (business) {
             setOperationMode((business.operation_mode as 'restaurant' | 'counter') || 'restaurant')
+            setKitchenEnabled(business.kitchen_enabled ?? true)
             setBusinessName(business.name || '')
         }
         const { data: register } = await supabase
@@ -414,18 +416,20 @@ export default function POSPage() {
                 .eq('order_id', editingOrderId)
             const newTotal = (allItems || []).reduce(
                 (sum, i) => sum + i.price_snapshot * i.quantity, 0)
-            // If order was PAID (adding items after payment), revert to OPEN
+            // Si la cuenta ya estaba Pagada (se le agregan productos después), vuelve a Abierta
             const currentOrder = openOrders.find(o => o.id === editingOrderId)
-            if (currentOrder && currentOrder.status === 'PAID') {
-                await supabase.from('orders')
+            const { error: updateError } = currentOrder && currentOrder.status === 'PAID'
+                ? await supabase.from('orders')
                     .update({ subtotal_snapshot: newTotal, total_snapshot: newTotal, status: 'OPEN' })
                     .eq('id', editingOrderId)
-            } else {
-                await supabase.from('orders')
+                : await supabase.from('orders')
                     .update({ subtotal_snapshot: newTotal, total_snapshot: newTotal })
                     .eq('id', editingOrderId)
+            if (updateError) {
+                showToast('Error: ' + updateError.message, 'error')
+                setProcessing(false); return
             }
-            showToast(`Orden ${editingOrderLabel} actualizada`)
+            showToast(`${editingOrderLabel} actualizada`)
             cancelEditingOrder()
         } else {
             // Create new open order
@@ -455,7 +459,9 @@ export default function POSPage() {
                 notes: formatNotesForDB(item),
             }))
             await supabase.from('order_items').insert(items)
-            showToast(`Orden ${tableNumber.trim() || folio} enviada a cocina`)
+            showToast(kitchenEnabled
+                ? `Orden ${tableNumber.trim() || folio} enviada a cocina`
+                : `Cuenta ${tableNumber.trim() || folio} abierta`)
             setOrderItems([]); setTableNumber(''); setServiceType('dine_in')
         }
         setProcessing(false)
@@ -466,8 +472,12 @@ export default function POSPage() {
 
     const handleFinalizeOrder = async (order: OpenOrder) => {
         setProcessing(true)
-        await supabase.from('orders').update({ status: 'CLOSED' }).eq('id', order.id)
-        showToast(`Orden ${order.table_number || order.folio} finalizada`)
+        const { error } = await supabase.from('orders').update({ status: 'CLOSED' }).eq('id', order.id)
+        if (error) {
+            showToast('Error: ' + error.message, 'error')
+            setProcessing(false); return
+        }
+        showToast(`${order.table_number || order.folio} finalizada`)
         setProcessing(false)
         loadOpenOrders()
     }
@@ -515,10 +525,14 @@ export default function POSPage() {
         if (paidSoFar >= orderTotal) {
             // Already fully paid — just mark as PAID if not already
             if (order.status !== 'PAID') {
-                await supabase.from('orders').update({ status: 'PAID' }).eq('id', order.id)
+                const { error } = await supabase.from('orders').update({ status: 'PAID' }).eq('id', order.id)
+                if (error) {
+                    showToast('Error: ' + error.message, 'error')
+                    return
+                }
                 loadOpenOrders()
             }
-            showToast(`Orden ${order.table_number || order.folio} ya está pagada`, 'error')
+            showToast(`${order.table_number || order.folio} ya está pagada`, 'error')
             return
         }
 
@@ -568,8 +582,12 @@ export default function POSPage() {
                 if (payErr) { showToast('Error: ' + payErr.message, 'error'); setProcessing(false); return }
             }
 
-            await supabase.from('orders').update({ status: 'PAID' }).eq('id', payingOpenOrderId)
-            showToast(`Orden ${order.table_number || order.folio} cobrada - pendiente de entrega`)
+            const { error: statusErr } = await supabase.from('orders').update({ status: 'PAID' }).eq('id', payingOpenOrderId)
+            if (statusErr) {
+                showToast('Error: ' + statusErr.message, 'error')
+                setProcessing(false); return
+            }
+            showToast(`${order.table_number || order.folio} cobrada - pendiente de entrega`)
             setShowPaymentModal(false)
             cancelEditingOrder()
             setProcessing(false)
@@ -708,7 +726,7 @@ export default function POSPage() {
                         {!editingOrderId && (
                             <input
                                 type="text" className="pos-builder-table-input"
-                                placeholder="Mesa / nombre..."
+                                placeholder={kitchenEnabled ? 'Mesa / nombre...' : 'Cliente / cuenta...'}
                                 value={tableNumber}
                                 onChange={e => setTableNumber(e.target.value)}
                             />
@@ -809,7 +827,9 @@ export default function POSPage() {
                             onClick={handleSendToKitchen}>
                             <span className="pos-action-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a4 4 0 0 0-4 4c0 2 1.5 3 3 4.5S12 13 12 14" /><path d="M12 14c0-1 .5-2 1-2.5S16 8 16 6a4 4 0 0 0-4-4" /><path d="M2 18h20l-2 4H4l-2-4z" /></svg></span>
                             <span className="pos-action-text">
-                                {editingOrderId ? 'Actualizar orden' : 'Enviar a cocina'}
+                                {kitchenEnabled
+                                    ? (editingOrderId ? 'Actualizar orden' : 'Enviar a cocina')
+                                    : (editingOrderId ? 'Actualizar cuenta' : 'Guardar cuenta')}
                             </span>
                         </button>
                         {!editingOrderId ? (
@@ -838,7 +858,7 @@ export default function POSPage() {
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                             <polyline points="14 2 14 8 20 8" />
                         </svg>
-                        Órdenes abiertas
+                        {kitchenEnabled ? 'Órdenes abiertas' : 'Cuentas abiertas'}
                         {openOrders.length > 0 && <span className="pos-sidebar-count">{openOrders.length}</span>}
                         <div className="pos-rt-dot" style={{
                             backgroundColor: realtimeStatus === 'live' ? '#16a34a' : realtimeStatus === 'connecting' ? '#ca8a04' : '#dc2626',
@@ -853,8 +873,12 @@ export default function POSPage() {
                     ) : openOrders.length === 0 ? (
                         <div className="pos-sidebar-empty">
                             <div className="pos-sidebar-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></svg></div>
-                            <div className="pos-sidebar-empty-title">No hay órdenes abiertas</div>
-                            <div className="pos-sidebar-empty-tip">Las órdenes aparecen aquí cuando las envías a cocina o las guardas abiertas.</div>
+                            <div className="pos-sidebar-empty-title">{kitchenEnabled ? 'No hay órdenes abiertas' : 'No hay cuentas abiertas'}</div>
+                            <div className="pos-sidebar-empty-tip">
+                                {kitchenEnabled
+                                    ? 'Las órdenes aparecen aquí cuando las envías a cocina o las guardas abiertas.'
+                                    : 'Las cuentas aparecen aquí cuando las guardas sin cobrar o las dejas abiertas.'}
+                            </div>
                         </div>
                     ) : (
                         openOrders.map(order => {

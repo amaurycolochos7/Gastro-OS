@@ -16,6 +16,7 @@ interface MembershipWithBusiness {
     businesses: {
         name: string
         deleted_at: string | null
+        kitchen_enabled: boolean
     }
 }
 
@@ -46,7 +47,7 @@ export default async function DashboardLayout({
     // Obtener membresía y negocio (usar limit(1) por si tiene múltiples membresías)
     const { data: membership } = await supabase
         .from('business_memberships')
-        .select('role, business_id, businesses(name, deleted_at)')
+        .select('role, business_id, businesses(name, deleted_at, kitchen_enabled)')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .order('created_at', { ascending: true })
@@ -88,6 +89,7 @@ export default async function DashboardLayout({
                     <Sidebar
                         businessName={typedMembership.businesses.name}
                         role={typedMembership.role}
+                        kitchenEnabled={typedMembership.businesses.kitchen_enabled}
                     />
                     <main className="main-content">
                         {children}
