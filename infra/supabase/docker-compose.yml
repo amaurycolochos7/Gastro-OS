@@ -211,6 +211,20 @@ services:
     - config_file=/etc/postgresql/postgresql.conf
     - -c
     - log_min_messages=fatal
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    volumes:
+    - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command:
+    - server
+    - /data
+    - --console-address
+    - ":9001"
 volumes:
   db-config: null
   db-data: {}
+  minio-data: {}
