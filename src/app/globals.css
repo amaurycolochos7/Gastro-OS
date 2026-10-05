@@ -1767,6 +1767,27 @@ select.form-input option {
   gap: var(--spacing-md);
 }
 
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btn-google:hover {
+  background: var(--bg-tertiary);
+}
+
 .form-label-row {
   display: flex;
   align-items: center;

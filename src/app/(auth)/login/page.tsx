@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import AuthHeroLayout from '../components/AuthHeroLayout'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -43,6 +44,12 @@ export default function LoginPage() {
         >
             <div className="auth-card">
                 <h2 className="auth-card-title">Iniciar sesión</h2>
+
+                <GoogleSignInButton />
+
+                <div className="auth-divider">
+                    <span>o con tu correo</span>
+                </div>
 
                 <form onSubmit={handleSubmit} className="auth-form">
                     <div className="form-group">

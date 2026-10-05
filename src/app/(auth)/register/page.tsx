@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { validatePasswordChecks } from '@/lib/password'
 import AuthHeroLayout from '../components/AuthHeroLayout'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 
 const TERMS_VERSION = 'v2026-02-12'
 
@@ -80,6 +81,12 @@ export default function RegisterPage() {
         >
             <div className="auth-card">
                 <h2 className="auth-card-title">Registro</h2>
+
+                <GoogleSignInButton />
+
+                <div className="auth-divider">
+                    <span>o con tu correo</span>
+                </div>
 
                 <form onSubmit={handleSubmit} className="auth-form">
                     <div className="form-group">
