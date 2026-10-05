@@ -7,7 +7,12 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
+    console.log('[auth/callback DEBUG] request.url=', request.url)
+    console.log('[auth/callback DEBUG] host header=', request.headers.get('host'))
+    console.log('[auth/callback DEBUG] x-forwarded-host=', request.headers.get('x-forwarded-host'))
+    console.log('[auth/callback DEBUG] x-forwarded-proto=', request.headers.get('x-forwarded-proto'))
     const { searchParams, origin } = new URL(request.url)
+    console.log('[auth/callback DEBUG] computed origin=', origin)
     const code = searchParams.get('code')
     const next = searchParams.get('next')
 
