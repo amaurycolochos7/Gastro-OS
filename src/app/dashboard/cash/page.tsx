@@ -10,6 +10,7 @@ export default function CashPage() {
     const { businessId, userId, loading: businessLoading } = useBusiness()
     const [register, setRegister] = useState<CashRegister | null>(null)
     const [movements, setMovements] = useState<CashMovement[]>([])
+    const [saleMovements, setSaleMovements] = useState<CashMovement[]>([])
     const [loading, setLoading] = useState(true)
 
     // Business Config
@@ -108,12 +109,47 @@ export default function CashPage() {
                 .is('deleted_at', null)
                 .order('created_at', { ascending: false })
             setMovements(movs || [])
+            await loadSaleMovements(openRegister.id)
         } else {
             setRegister(null)
             setMovements([])
+            setSaleMovements([])
         }
         setLoading(false)
     }
+
+    // Ventas cobradas en este turno, representadas como "movimiento" de solo
+    // lectura para que aparezcan junto a los depósitos/retiros manuales.
+    const loadSaleMovements = async (cashRegisterId: string) => {
+        const { data: payments } = await supabase
+            .from('payments')
+            .select('id, amount, method, status, paid_at, created_by, business_id, cash_register_id, orders(folio)')
+            .eq('cash_register_id', cashRegisterId)
+            .eq('status', 'paid')
+            .is('deleted_at', null)
+            .order('paid_at', { ascending: false })
+
+        const METHOD_LABEL: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' }
+
+        const sales: CashMovement[] = (payments || []).map((p: any) => ({
+            id: `sale-${p.id}`,
+            cash_register_id: p.cash_register_id,
+            business_id: p.business_id,
+            type: 'in',
+            amount: p.amount,
+            reason: `Venta — Orden ${p.orders?.folio || ''} (${METHOD_LABEL[p.method] || p.method})`,
+            created_by: p.created_by,
+            created_at: p.paid_at,
+            deleted_at: null,
+        }))
+
+        setSaleMovements(sales)
+    }
+
+    // Movimientos manuales + ventas cobradas, ordenados cronológicamente
+    const allMovements = [...movements, ...saleMovements].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
 
     const loadClosingSummary = async () => {
         if (!register) return
@@ -421,7 +457,7 @@ export default function CashPage() {
                     Movimientos del turno
                 </h3>
 
-                {movements.length === 0 ? (
+                {allMovements.length === 0 ? (
                     <div className="cash-movements-empty">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -432,39 +468,47 @@ export default function CashPage() {
                     </div>
                 ) : (
                     <div className="cash-movements-list">
-                        {movements.map((m) => (
-                            <div
-                                key={m.id}
-                                className={`cash-movement-item ${m.type} clickable`}
-                                onClick={() => setSelectedMovement(m)}
-                            >
-                                <div className="cash-movement-icon">
-                                    {m.type === 'in' ? (
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <line x1="12" y1="19" x2="12" y2="5" />
-                                            <polyline points="5 12 12 5 19 12" />
-                                        </svg>
-                                    ) : (
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <line x1="12" y1="5" x2="12" y2="19" />
-                                            <polyline points="19 12 12 19 5 12" />
-                                        </svg>
-                                    )}
-                                </div>
-                                <div className="cash-movement-info">
-                                    <span className="cash-movement-reason">{m.reason}</span>
-                                    <span className="cash-movement-time">
-                                        {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {allMovements.map((m) => {
+                            const isSale = m.id.startsWith('sale-')
+                            return (
+                                <div
+                                    key={m.id}
+                                    className={`cash-movement-item ${m.type} clickable`}
+                                    onClick={() => setSelectedMovement(m)}
+                                >
+                                    <div className="cash-movement-icon">
+                                        {isSale ? (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                                                <line x1="1" y1="10" x2="23" y2="10" />
+                                            </svg>
+                                        ) : m.type === 'in' ? (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="12" y1="19" x2="12" y2="5" />
+                                                <polyline points="5 12 12 5 19 12" />
+                                            </svg>
+                                        ) : (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="12" y1="5" x2="12" y2="19" />
+                                                <polyline points="19 12 12 19 5 12" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <div className="cash-movement-info">
+                                        <span className="cash-movement-reason">{m.reason}</span>
+                                        <span className="cash-movement-time">
+                                            {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <span className={`cash-movement-amount ${m.type}`}>
+                                        {m.type === 'in' ? '+' : '-'}${m.amount.toFixed(2)}
                                     </span>
+                                    <svg className="cash-movement-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="9 18 15 12 9 6" />
+                                    </svg>
                                 </div>
-                                <span className={`cash-movement-amount ${m.type}`}>
-                                    {m.type === 'in' ? '+' : '-'}${m.amount.toFixed(2)}
-                                </span>
-                                <svg className="cash-movement-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="9 18 15 12 9 6" />
-                                </svg>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
             </div>

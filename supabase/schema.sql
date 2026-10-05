@@ -431,8 +431,11 @@ CREATE INDEX IF NOT EXISTS idx_payments_register_paid ON payments(cash_register_
 CREATE INDEX IF NOT EXISTS idx_movements_register_created ON cash_movements(cash_register_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payments_limit_day ON payments(business_id, paid_at) WHERE status = 'paid' AND deleted_at IS NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_one_paid_per_order ON payments(order_id)
-  WHERE status = 'paid' AND deleted_at IS NULL;
+-- Migración idempotente: este índice único bloqueaba los pagos parciales
+-- (una cuenta/orden puede tener varios pagos 'paid' — uno por abono — como
+-- ya asume el POS al sumar payments.amount para calcular lo ya pagado).
+-- Con el índice, el segundo abono fallaba con "duplicate key". Se quita.
+DROP INDEX IF EXISTS idx_one_paid_per_order;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_open_register_per_user ON cash_registers(business_id, opened_by)
   WHERE status = 'open' AND deleted_at IS NULL;
@@ -629,11 +632,18 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- El inventario de una orden se descuenta UNA sola vez, sin importar
+  -- cuántos pagos parciales (abonos) termine teniendo esa orden — por eso
+  -- este guard se revisa por ORDEN (vía los pagos ya existentes de esa
+  -- orden), no solo por este pago puntual (NEW.id siempre es nuevo en un
+  -- INSERT, así que revisar solo NEW.id nunca evitaba el doble descuento).
   IF EXISTS (
-    SELECT 1 FROM inventory_movements
-    WHERE ref_entity_id = NEW.id
-      AND type = 'auto_sale'
-      AND deleted_at IS NULL
+    SELECT 1
+    FROM inventory_movements im
+    JOIN payments p ON p.id = im.ref_entity_id
+    WHERE p.order_id = NEW.order_id
+      AND im.type = 'auto_sale'
+      AND im.deleted_at IS NULL
   ) THEN
     RETURN NEW;
   END IF;
