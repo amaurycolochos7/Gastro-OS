@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useBusiness } from '@/lib/context/BusinessContext'
+import { hasPermission } from '@/lib/permissions'
 import TicketPreview from '../pos/TicketPreview'
 
 interface OrderItem {
@@ -42,7 +43,8 @@ interface CashRegister {
 }
 
 export default function OrdersPage() {
-    const { businessId, loading: businessLoading } = useBusiness()
+    const { businessId, role, loading: businessLoading } = useBusiness()
+    const [permissionOverrides, setPermissionOverrides] = useState<Record<string, string[]>>({})
     const [orders, setOrders] = useState<Order[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
@@ -101,11 +103,14 @@ export default function OrdersPage() {
         const loadBusinessName = async () => {
             const { data } = await supabase
                 .from('businesses')
-                .select('name')
+                .select('name, permission_overrides')
                 .eq('id', businessId)
                 .single()
 
-            if (data) setBusinessName(data.name)
+            if (data) {
+                setBusinessName(data.name)
+                setPermissionOverrides(data.permission_overrides || {})
+            }
         }
 
         loadBusinessName()
@@ -167,9 +172,14 @@ export default function OrdersPage() {
     }
 
     // Condiciones de visibilidad (CORREGIDAS para operación real)
+    // El estado de la orden/pago define CUÁNDO aplica cada acción; el rol
+    // (+ lo que el OWNER haya habilitado en Configuración) define QUIÉN puede verla.
     const canCancel = (selectedOrder?.status === 'OPEN' || selectedOrder?.status === 'IN_PREP') && !paidPayment
+        && !!role && hasPermission(role, 'order:cancel', permissionOverrides)
     const canVoid = !!paidPayment && !!currentCashRegister && paidPayment.cash_register_id === currentCashRegister.id
+        && !!role && hasPermission(role, 'payment:void', permissionOverrides)
     const canRefund = !!paidPayment && (!currentCashRegister || paidPayment.cash_register_id !== currentCashRegister.id)
+        && !!role && hasPermission(role, 'payment:refund', permissionOverrides)
     const canReprint = selectedOrder?.status !== 'CANCELLED' && paidPayment
 
     // Acción: Cancelar orden (RPC)

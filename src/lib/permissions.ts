@@ -22,6 +22,10 @@ export const PERMISSIONS = {
     'order:discount': ['OWNER', 'ADMIN'],
     'order:reprint': ['OWNER', 'ADMIN', 'CASHIER'],
 
+    // Pagos
+    'payment:void': ['OWNER', 'ADMIN'],
+    'payment:refund': ['OWNER', 'ADMIN'],
+
     // Cocina
     'order:change_status': ['OWNER', 'ADMIN', 'KITCHEN'],
 
@@ -44,9 +48,15 @@ export const PERMISSIONS = {
 
 export type Permission = keyof typeof PERMISSIONS
 
-export function hasPermission(role: Role, permission: Permission): boolean {
+export function hasPermission(
+    role: Role,
+    permission: Permission,
+    overrides?: Record<string, string[]> | null
+): boolean {
     const allowedRoles = PERMISSIONS[permission] as readonly string[]
-    return allowedRoles.includes(role)
+    if (allowedRoles.includes(role)) return true
+    const extra = overrides?.[permission]
+    return !!extra && extra.includes(role)
 }
 
 export function getAllPermissions(role: Role): Permission[] {

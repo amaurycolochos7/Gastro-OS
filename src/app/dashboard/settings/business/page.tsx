@@ -13,8 +13,10 @@ export default function BusinessSettingsPage() {
 
     const [operationMode, setOperationMode] = useState<'counter' | 'restaurant'>('restaurant')
     const [kitchenEnabled, setKitchenEnabled] = useState(true)
+    const [permissionOverrides, setPermissionOverrides] = useState<Record<string, string[]>>({})
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [savingPermission, setSavingPermission] = useState<string | null>(null)
 
     const isOwner = role === 'OWNER'
 
@@ -23,12 +25,13 @@ export default function BusinessSettingsPage() {
         setLoading(true)
         const { data } = await supabase
             .from('businesses')
-            .select('operation_mode, kitchen_enabled')
+            .select('operation_mode, kitchen_enabled, permission_overrides')
             .eq('id', businessId)
             .single()
         if (data) {
             setOperationMode((data.operation_mode as 'counter' | 'restaurant') || 'restaurant')
             setKitchenEnabled(data.kitchen_enabled ?? true)
+            setPermissionOverrides(data.permission_overrides || {})
         }
         setLoading(false)
     }, [businessId, supabase])
@@ -47,6 +50,28 @@ export default function BusinessSettingsPage() {
         setSaving(false)
         if (error || !data?.success) {
             setKitchenEnabled(previous)
+            await alert({
+                title: 'No se pudo actualizar',
+                message: error?.message || data?.message || 'Intenta de nuevo.',
+                variant: 'warning',
+            })
+        }
+    }
+
+    const handleToggleCashierPermission = async (permission: string, checked: boolean) => {
+        if (!businessId) return
+        const previous = permissionOverrides
+        const roles = checked ? ['CASHIER'] : []
+        setPermissionOverrides(prev => ({ ...prev, [permission]: roles }))
+        setSavingPermission(permission)
+        const { data, error } = await supabase.rpc('set_permission_override', {
+            p_business_id: businessId,
+            p_permission: permission,
+            p_roles: roles,
+        })
+        setSavingPermission(null)
+        if (error || !data?.success) {
+            setPermissionOverrides(previous)
             await alert({
                 title: 'No se pudo actualizar',
                 message: error?.message || data?.message || 'Intenta de nuevo.',
@@ -114,6 +139,59 @@ export default function BusinessSettingsPage() {
                                 órdenes abiertas pasan a llamarse &quot;cuentas&quot; y el flujo de cobro es más directo.
                                 {operationMode === 'counter' && !kitchenEnabled && ' Tu negocio está en modo Mostrador/Barra, por eso viene apagado por defecto.'}
                             </small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 'var(--spacing-lg)' }}>
+                <h3 style={{ marginBottom: 'var(--spacing-xs)' }}>Permisos del equipo</h3>
+                <p className="text-muted" style={{ marginBottom: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
+                    Por defecto, solo el Dueño y los Administradores pueden cancelar órdenes, anular pagos o hacer
+                    reembolsos. Actívalo aquí si quieres que tus Cajeros también puedan hacerlo.
+                </p>
+
+                <div className="form-group">
+                    <label className="toggle-label">
+                        <input
+                            type="checkbox"
+                            checked={(permissionOverrides['order:cancel'] || []).includes('CASHIER')}
+                            disabled={savingPermission === 'order:cancel'}
+                            onChange={e => handleToggleCashierPermission('order:cancel', e.target.checked)}
+                        />
+                        <span className="toggle-text">
+                            <strong>El Cajero puede cancelar órdenes</strong>
+                            <small>Solo aplica a órdenes que todavía no tienen ningún pago registrado.</small>
+                        </span>
+                    </label>
+                </div>
+
+                <div className="form-group">
+                    <label className="toggle-label">
+                        <input
+                            type="checkbox"
+                            checked={(permissionOverrides['payment:void'] || []).includes('CASHIER')}
+                            disabled={savingPermission === 'payment:void'}
+                            onChange={e => handleToggleCashierPermission('payment:void', e.target.checked)}
+                        />
+                        <span className="toggle-text">
+                            <strong>El Cajero puede anular pagos (void)</strong>
+                            <small>Solo pagos del turno de caja que sigue abierto ahora mismo.</small>
+                        </span>
+                    </label>
+                </div>
+
+                <div className="form-group">
+                    <label className="toggle-label">
+                        <input
+                            type="checkbox"
+                            checked={(permissionOverrides['payment:refund'] || []).includes('CASHIER')}
+                            disabled={savingPermission === 'payment:refund'}
+                            onChange={e => handleToggleCashierPermission('payment:refund', e.target.checked)}
+                        />
+                        <span className="toggle-text">
+                            <strong>El Cajero puede hacer reembolsos</strong>
+                            <small>Solo pagos de turnos de caja ya cerrados.</small>
                         </span>
                     </label>
                 </div>

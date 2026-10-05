@@ -36,6 +36,7 @@ export interface Business {
     type: BusinessType
     operation_mode: OperationMode
     kitchen_enabled: boolean
+    permission_overrides: Record<string, string[]>
     logo_url: string | null
     limits_products: number
     limits_orders_day: number

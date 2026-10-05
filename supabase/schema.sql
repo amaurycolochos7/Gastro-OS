@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS businesses (
   type text NOT NULL CHECK (type IN ('taqueria', 'pizzeria', 'cafeteria', 'fast_food', 'other')),
   operation_mode text NOT NULL DEFAULT 'counter' CHECK (operation_mode IN ('counter', 'restaurant')),
   kitchen_enabled boolean NOT NULL DEFAULT true,
+  permission_overrides jsonb NOT NULL DEFAULT '{}'::jsonb,
   logo_url text,
   limits_products integer DEFAULT 100,
   limits_orders_day integer DEFAULT 200,
@@ -58,6 +59,19 @@ BEGIN
 END $$;
 
 COMMENT ON COLUMN businesses.kitchen_enabled IS 'Si el negocio usa la pantalla/flujo de Cocina. Por defecto true, pero se fija en false al crear negocios en operation_mode=counter (bar/mostrador) y es configurable por el OWNER en Configuración.';
+
+-- Migración idempotente (mismo patrón que kitchen_enabled arriba)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'businesses' AND column_name = 'permission_overrides'
+  ) THEN
+    ALTER TABLE businesses ADD COLUMN permission_overrides jsonb NOT NULL DEFAULT '{}'::jsonb;
+  END IF;
+END $$;
+
+COMMENT ON COLUMN businesses.permission_overrides IS 'Roles adicionales (más allá de OWNER/ADMIN, que siempre pueden) autorizados por el OWNER para acciones sensibles. Formato: {"order:cancel": ["CASHIER"], "payment:void": [...], "payment:refund": [...]}. Ver set_kitchen_enabled/business_role_can.';
 
 -- Membresías (Auth + Roles)
 CREATE TABLE IF NOT EXISTS business_memberships (
@@ -772,11 +786,28 @@ AS $$
 DECLARE
   v_order record;
   v_payment record;
+  v_actor_user_id uuid;
+  v_role text;
 BEGIN
+  -- p_user_id se ignora para fines de autorización/auditoría: nunca se
+  -- confía en lo que manda el cliente. El actor real sale de la sesión.
+  v_actor_user_id := auth.uid();
+  IF v_actor_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
   SELECT * INTO v_order FROM orders WHERE id = p_order_id;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Order not found';
+  END IF;
+
+  SELECT role INTO v_role
+  FROM business_memberships
+  WHERE business_id = v_order.business_id AND user_id = v_actor_user_id AND status = 'active';
+
+  IF v_role IS NULL OR NOT business_role_can(v_order.business_id, v_role, 'order:cancel') THEN
+    RAISE EXCEPTION 'Forbidden';
   END IF;
 
   IF v_order.status NOT IN ('OPEN', 'IN_PREP') THEN
@@ -805,7 +836,7 @@ BEGIN
     business_id, actor_user_id, action, entity, entity_id, metadata
   ) VALUES (
     v_order.business_id,
-    p_user_id,
+    v_actor_user_id,
     'cancel',
     'order',
     p_order_id,
@@ -820,6 +851,9 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION cancel_order FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION cancel_order TO authenticated;
+
 CREATE OR REPLACE FUNCTION void_payment(
   p_payment_id uuid,
   p_void_reason text,
@@ -833,11 +867,26 @@ DECLARE
   v_payment record;
   v_order record;
   v_current_cash_register uuid;
+  v_actor_user_id uuid;
+  v_role text;
 BEGIN
+  v_actor_user_id := auth.uid();
+  IF v_actor_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
   SELECT * INTO v_payment FROM payments WHERE id = p_payment_id;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Payment not found';
+  END IF;
+
+  SELECT role INTO v_role
+  FROM business_memberships
+  WHERE business_id = v_payment.business_id AND user_id = v_actor_user_id AND status = 'active';
+
+  IF v_role IS NULL OR NOT business_role_can(v_payment.business_id, v_role, 'payment:void') THEN
+    RAISE EXCEPTION 'Forbidden';
   END IF;
 
   IF v_payment.status != 'paid' THEN
@@ -878,7 +927,7 @@ BEGIN
     business_id, actor_user_id, action, entity, entity_id, metadata
   ) VALUES (
     v_payment.business_id,
-    p_user_id,
+    v_actor_user_id,
     'void',
     'payment',
     p_payment_id,
@@ -895,6 +944,9 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION void_payment FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION void_payment TO authenticated;
+
 CREATE OR REPLACE FUNCTION refund_payment(
   p_payment_id uuid,
   p_refund_reason text,
@@ -908,11 +960,26 @@ DECLARE
   v_payment record;
   v_order record;
   v_current_cash_register uuid;
+  v_actor_user_id uuid;
+  v_role text;
 BEGIN
+  v_actor_user_id := auth.uid();
+  IF v_actor_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
   SELECT * INTO v_payment FROM payments WHERE id = p_payment_id;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Payment not found';
+  END IF;
+
+  SELECT role INTO v_role
+  FROM business_memberships
+  WHERE business_id = v_payment.business_id AND user_id = v_actor_user_id AND status = 'active';
+
+  IF v_role IS NULL OR NOT business_role_can(v_payment.business_id, v_role, 'payment:refund') THEN
+    RAISE EXCEPTION 'Forbidden';
   END IF;
 
   IF v_payment.status != 'paid' THEN
@@ -949,7 +1016,7 @@ BEGIN
     business_id, actor_user_id, action, entity, entity_id, metadata
   ) VALUES (
     v_payment.business_id,
-    p_user_id,
+    v_actor_user_id,
     'refund',
     'payment',
     p_payment_id,
@@ -965,6 +1032,9 @@ BEGIN
   RETURN json_build_object('success', true, 'folio', v_order.folio);
 END;
 $$;
+
+REVOKE ALL ON FUNCTION refund_payment FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION refund_payment TO authenticated;
 
 -- =============================================
 -- FUNCTIONS — cierre de caja (versión hardened)
@@ -1559,6 +1629,74 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 REVOKE ALL ON FUNCTION set_kitchen_enabled FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION set_kitchen_enabled TO authenticated;
+
+-- Roles que siempre pueden (OWNER/ADMIN) + roles adicionales que el OWNER
+-- haya autorizado en businesses.permission_overrides para esa acción puntual.
+CREATE OR REPLACE FUNCTION business_role_can(
+  p_business_id uuid,
+  p_role text,
+  p_permission text
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT
+    p_role IN ('OWNER', 'ADMIN')
+    OR EXISTS (
+      SELECT 1 FROM businesses
+      WHERE id = p_business_id
+        AND permission_overrides -> p_permission ? p_role
+    );
+$$;
+
+REVOKE ALL ON FUNCTION business_role_can FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION business_role_can TO authenticated;
+
+CREATE OR REPLACE FUNCTION set_permission_override(
+  p_business_id uuid,
+  p_permission text,
+  p_roles text[]
+)
+RETURNS jsonb AS $$
+DECLARE
+  v_user_id uuid;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'code', 'AUTH_ERROR', 'message', 'No autenticado');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM business_memberships
+    WHERE business_id = p_business_id AND user_id = v_user_id AND role = 'OWNER' AND status = 'active'
+  ) THEN
+    RETURN jsonb_build_object('success', false, 'code', 'FORBIDDEN', 'message', 'No eres dueño de este negocio');
+  END IF;
+
+  IF p_permission NOT IN ('order:cancel', 'payment:void', 'payment:refund') THEN
+    RETURN jsonb_build_object('success', false, 'code', 'VALIDATION_ERROR', 'message', 'Permiso no configurable: ' || coalesce(p_permission, 'null'));
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM unnest(p_roles) r WHERE r NOT IN ('CASHIER', 'KITCHEN', 'INVENTORY')) THEN
+    RETURN jsonb_build_object('success', false, 'code', 'VALIDATION_ERROR', 'message', 'Rol no asignable en overrides');
+  END IF;
+
+  UPDATE businesses
+  SET permission_overrides = jsonb_set(permission_overrides, ARRAY[p_permission], to_jsonb(p_roles))
+  WHERE id = p_business_id;
+
+  RETURN jsonb_build_object('success', true, 'code', 'PERMISSION_UPDATED', 'permission', p_permission, 'roles', p_roles);
+
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'code', 'UNKNOWN', 'message', SQLERRM);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+REVOKE ALL ON FUNCTION set_permission_override FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION set_permission_override TO authenticated;
 
 -- =============================================
 -- FUNCTIONS — bloqueo de usuarios
