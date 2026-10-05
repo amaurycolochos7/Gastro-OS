@@ -6311,6 +6311,57 @@ select.form-input option {
   padding-right: 36px;
 }
 
+/* Categoría: crear inline desde el modal de producto */
+.menu-form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.menu-inline-add-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.menu-inline-add-link:hover {
+  text-decoration: underline;
+}
+
+.menu-inline-category-row {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.menu-inline-category-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-inline-category-row .menu-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.menu-no-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius);
+}
+
+.menu-no-categories .menu-btn {
+  align-self: flex-start;
+}
+
 /* Price Input */
 .menu-input-price {
   position: relative;

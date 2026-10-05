@@ -65,6 +65,9 @@ export default function MenuPage() {
     const [productCategory, setProductCategory] = useState('')
     const [productInventoryItemId, setProductInventoryItemId] = useState('')
     const [categoryName, setCategoryName] = useState('')
+    const [showInlineCategoryInput, setShowInlineCategoryInput] = useState(false)
+    const [inlineCategoryName, setInlineCategoryName] = useState('')
+    const [savingInlineCategory, setSavingInlineCategory] = useState(false)
 
     const supabase = createClient()
 
@@ -112,6 +115,7 @@ export default function MenuPage() {
 
     const handleSaveProduct = async () => {
         if (!productName || !productPrice || !businessId) return
+        if (categories.length === 0) return
 
         // Check product limit only when creating (not editing)
         if (!editingProduct) {
@@ -194,6 +198,29 @@ export default function MenuPage() {
         loadData()
     }
 
+    const handleCreateInlineCategory = async () => {
+        if (!inlineCategoryName.trim() || !businessId) return
+        setSavingInlineCategory(true)
+        const { data, error } = await supabase
+            .from('categories')
+            .insert({
+                business_id: businessId,
+                name: inlineCategoryName.trim(),
+                position: categories.length,
+            })
+            .select()
+            .single()
+        setSavingInlineCategory(false)
+        if (error || !data) {
+            console.error('[Menu] Error al crear categoría:', error)
+            return
+        }
+        setCategories(prev => [...prev, data])
+        setProductCategory(data.id)
+        setInlineCategoryName('')
+        setShowInlineCategoryInput(false)
+    }
+
     const handleDeleteCategory = async (id: string, name: string) => {
         const productsInCategory = products.filter(p => p.category_id === id)
 
@@ -230,6 +257,8 @@ export default function MenuPage() {
         setProductInventoryItemId('')
         setEditingProduct(null)
         setShowProductModal(false)
+        setShowInlineCategoryInput(false)
+        setInlineCategoryName('')
     }
 
     const openEditProduct = (product: Product) => {
@@ -434,16 +463,71 @@ export default function MenuPage() {
                                 </div>
 
                                 <div className="menu-form-group">
-                                    <label>Categoría</label>
-                                    <select
-                                        value={productCategory}
-                                        onChange={(e) => setProductCategory(e.target.value)}
-                                    >
-                                        <option value="">Sin categoría</option>
-                                        {categories.map(cat => (
-                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="menu-form-label-row">
+                                        <label>Categoría</label>
+                                        {categories.length > 0 && !showInlineCategoryInput && (
+                                            <button
+                                                type="button"
+                                                className="menu-inline-add-link"
+                                                onClick={() => setShowInlineCategoryInput(true)}
+                                            >
+                                                + Nueva categoría
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {showInlineCategoryInput ? (
+                                        <div className="menu-inline-category-row">
+                                            <input
+                                                type="text"
+                                                value={inlineCategoryName}
+                                                onChange={(e) => setInlineCategoryName(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') { e.preventDefault(); handleCreateInlineCategory() }
+                                                    if (e.key === 'Escape') { setShowInlineCategoryInput(false); setInlineCategoryName('') }
+                                                }}
+                                                placeholder="Ej: Tacos, Bebidas, Postres..."
+                                                autoFocus
+                                            />
+                                            <button
+                                                type="button"
+                                                className="menu-btn menu-btn-primary"
+                                                onClick={handleCreateInlineCategory}
+                                                disabled={!inlineCategoryName.trim() || savingInlineCategory}
+                                            >
+                                                Agregar
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="menu-btn menu-btn-secondary"
+                                                onClick={() => { setShowInlineCategoryInput(false); setInlineCategoryName('') }}
+                                            >
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    ) : categories.length === 0 ? (
+                                        <div className="menu-no-categories">
+                                            <p className="menu-form-hint">Aún no tienes categorías. Crea una para poder agregar productos.</p>
+                                            <button
+                                                type="button"
+                                                className="menu-btn menu-btn-secondary"
+                                                onClick={() => setShowInlineCategoryInput(true)}
+                                            >
+                                                {Icons.plus}
+                                                Crear categoría
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={productCategory}
+                                            onChange={(e) => setProductCategory(e.target.value)}
+                                        >
+                                            <option value="">Sin categoría</option>
+                                            {categories.map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
 
                                 <div className="menu-form-group">
@@ -475,7 +559,8 @@ export default function MenuPage() {
                                 <button
                                     className="menu-btn menu-btn-primary"
                                     onClick={handleSaveProduct}
-                                    disabled={!productName || !productPrice}
+                                    disabled={!productName || !productPrice || categories.length === 0}
+                                    title={categories.length === 0 ? 'Crea una categoría primero' : undefined}
                                 >
                                     {editingProduct ? 'Guardar cambios' : 'Crear producto'}
                                 </button>
