@@ -26,6 +26,8 @@
 
   /* Danger - Rojo (SOLO errores críticos) */
   --color-danger: #dc2626;
+  /* Alias: usado en varias partes del código en vez de --color-danger */
+  --color-error: #dc2626;
 
   /* Muted */
   --color-muted: #64748b;
