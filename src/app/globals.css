@@ -3796,7 +3796,6 @@ select.form-input option {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: white;
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
 }
 
 .cw-step.completed .cw-step-circle {
@@ -3839,19 +3838,22 @@ select.form-input option {
   flex-direction: column;
   gap: 0;
   margin-bottom: var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 4px var(--spacing-md);
 }
 
 .cw-summary-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  padding: 10px 0;
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
 .cw-summary-row+.cw-summary-row {
-  border-top: 1px solid var(--bg-tertiary);
+  border-top: 1px solid var(--border-color);
 }
 
 .cw-summary-row span:last-child {
@@ -3864,11 +3866,13 @@ select.form-input option {
   color: var(--color-success);
 }
 
-.cw-summary-row.muted span,
-.cw-summary-row.muted span:last-child {
+.cw-summary-row.muted span:first-child {
   color: var(--text-muted);
-  font-weight: 400;
-  font-size: var(--font-size-xs);
+}
+
+.cw-summary-row.muted span:last-child {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .cw-summary-divider {
@@ -3878,25 +3882,28 @@ select.form-input option {
 }
 
 .cw-expected-card {
-  background: var(--bg-tertiary);
+  background: rgba(79, 70, 229, 0.06);
   border-radius: 14px;
   padding: var(--spacing-lg);
-  border-left: 4px solid var(--color-primary);
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
+  gap: 4px;
+  text-align: center;
   margin-bottom: var(--spacing-md);
 }
 
 .cw-expected-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
 }
 
 .cw-expected-value {
   font-size: var(--font-size-3xl);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-primary);
   letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
@@ -3949,10 +3956,10 @@ select.form-input option {
 
 .cw-arqueo-expected {
   text-align: center;
-  padding: var(--spacing-md);
+  padding: var(--spacing-lg);
   margin-bottom: var(--spacing-md);
-  background: var(--bg-tertiary);
-  border-radius: 12px;
+  background: rgba(79, 70, 229, 0.06);
+  border-radius: 14px;
 }
 
 .cw-arqueo-expected-label {
