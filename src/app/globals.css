@@ -1617,13 +1617,19 @@ select.form-input option {
   .login-form-side {
     flex: 1 1 auto;
     height: 100%;
-    padding: 20px 20px;
-    overflow: hidden;
+    padding: 16px 20px;
+    /* align-items:flex-start (no center): si el contenido no cabe (ej.
+       registro con más campos), debe poder hacer scroll hacia abajo sin
+       que la parte de arriba quede recortada/inalcanzable. */
+    align-items: flex-start;
+    overflow-y: auto;
   }
 
   .login-form-wrapper {
     max-width: 360px;
-    gap: 10px;
+    width: 100%;
+    margin: 0 auto;
+    gap: 8px;
   }
 
   .auth-brand {
@@ -1655,11 +1661,15 @@ select.form-input option {
   }
 
   .auth-form {
-    gap: var(--spacing-sm);
+    gap: 8px;
   }
 
   .auth-divider {
-    margin: var(--spacing-sm) 0;
+    margin: 10px 0;
+  }
+
+  .btn-google {
+    padding: 8px 16px;
   }
 
   .login-footer {
