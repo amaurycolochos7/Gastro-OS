@@ -1,18 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
-// Sin esto, Next.js puede evaluar esta ruta como estática en build time y
-// hornear un `origin` de placeholder (0.0.0.0:3000) en todos los redirects,
-// en vez de usar el host real de cada request (bug real, confirmado en vivo).
+// Esta ruta intercambia un código de un solo uso y redirige según el
+// usuario — nunca debe cachearse ni evaluarse de forma estática.
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
-    console.log('[auth/callback DEBUG] request.url=', request.url)
-    console.log('[auth/callback DEBUG] host header=', request.headers.get('host'))
-    console.log('[auth/callback DEBUG] x-forwarded-host=', request.headers.get('x-forwarded-host'))
-    console.log('[auth/callback DEBUG] x-forwarded-proto=', request.headers.get('x-forwarded-proto'))
-    const { searchParams, origin } = new URL(request.url)
-    console.log('[auth/callback DEBUG] computed origin=', origin)
+    const url = new URL(request.url)
+    const { searchParams } = url
+
+    // Next.js self-hosteado (fuera de Vercel) arma `request.url` con la
+    // dirección interna del contenedor en vez del dominio real, incluso
+    // detrás de un proxy que sí manda los headers correctos (confirmado
+    // en vivo). Hay que armar el origin a mano con esos headers.
+    const forwardedHost = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
+    const forwardedProto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
+    const origin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin
     const code = searchParams.get('code')
     const next = searchParams.get('next')
 
